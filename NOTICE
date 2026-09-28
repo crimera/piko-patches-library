@@ -1,0 +1,38 @@
+Piko Patches Library
+Copyright (C) 2026 crimera
+https://github.com/crimera/piko-patches-library
+
+=============
+
+This library contains shared patch-side infrastructure for piko Morphe patch
+bundles. Parts of it are derived from, or build against, the following
+projects:
+
+    Morphe Patches Library
+    https://github.com/MorpheApp/morphe-patches-library
+    Copyright (C) MorpheApp
+    Licensed under GPL-3.0 with additional terms. The vendored
+    `app.morphe.patches.all.misc.resources.AddResourcesPatch.kt` retains its
+    file-specific GPLv3 Section 7 notice, which must be preserved.
+
+    morphe-bytecode
+    https://github.com/crimera/morphe-bytecode
+    Copyright (C) 2026 crimera
+    Licensed under GPL-3.0-or-later.
+
+    Reseam - Rust APK patching engine with a Kotlin patch API
+    https://github.com/Reseam/reseam
+    Copyright (C) 2026 AunAli K. <hello@auna.li>
+    Licensed under GPL-3.0-or-later. Some helper naming follows the Reseam
+    patch API; morphe-bytecode carries the detailed attribution.
+
+=============
+
+7b. Attribution Requirement
+---------------------------
+
+This NOTICE file must be preserved and retained in all distributions
+of the Source Code and any Derivative Works.
+
+This project is licensed under the GNU General Public License v3.0 or later;
+the full text is in LICENSE.
