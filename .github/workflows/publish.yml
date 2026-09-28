@@ -42,7 +42,7 @@ jobs:
           set -euo pipefail
           ./gradlew jar --no-daemon
           JAR=$(ls build/libs/piko-patches-library-*.jar | grep -v sources | head -1)
-          unzip -l "$JAR" | grep -q 'app/crimera/patches/common/ResolverCardinality.class'
+          unzip -l "$JAR" | grep -q 'app/crimera/patches/common/ResolverCardinalityKt.class'
           unzip -l "$JAR" | grep -q 'app/crimera/tools/lint/ResolverLinter.class'
           unzip -l "$JAR" | grep -q 'META-INF/NOTICE'
           echo "$JAR: classes and notices verified"
