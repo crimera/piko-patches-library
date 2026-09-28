@@ -48,7 +48,7 @@ import org.w3c.dom.Node
 import java.util.Locale
 import java.util.logging.Logger
 
-internal val locales = listOf(
+val locales = listOf(
     AppLocale("", ""), // Default English locale. Must be first.
     AppLocale("ar-rSA", "ar"),
     AppLocale("bg-rBG", "bg"),
@@ -99,7 +99,7 @@ internal val locales = listOf(
     AppLocale("", "en-rGB"),
 )
 
-internal class AppLocale(
+class AppLocale(
     private val srcLocale: String,
     private val destLocale: String,
     val isBuiltInLanguage: Boolean = true
@@ -143,11 +143,11 @@ private val appsToInclude = mutableSetOf<String>()
 /**
  * Add all resources for the given app.
  */
-internal fun addAppResources(appId: String) {
+fun addAppResources(appId: String) {
     appsToInclude.add(appId)
 }
 
-internal val addResourcesPatch = resourcePatch(
+val addResourcesPatch = resourcePatch(
     description = "Add resources such as strings or arrays to the app."
 ) {
 
@@ -291,7 +291,7 @@ internal val addResourcesPatch = resourcePatch(
     }
 }
 
-internal object StringResourceSanitizer {
+object StringResourceSanitizer {
     // Matches unescaped double quotes.
     private val UNESCAPED_DOUBLE_QUOTE = Regex("(?<!\\\\)\"")
 

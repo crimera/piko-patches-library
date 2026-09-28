@@ -80,7 +80,7 @@ private fun String.isExactTypeDeclaration(): Boolean =
  * shapes. Unlike Morphe's global all-match path, owner scopes are resolved before method matching.
  */
 context(context: BytecodePatchContext)
-internal fun Fingerprint.scopedMatchAllOrNull(): List<Match>? {
+fun Fingerprint.scopedMatchAllOrNull(): List<Match>? {
     val nestedClassFingerprint = classFingerprint
     if (nestedClassFingerprint != null) {
         val originalClass = nestedClassFingerprint.matchOrNull()?.originalClassDef ?: return null
@@ -138,5 +138,5 @@ internal fun Fingerprint.scopedMatchAllOrNull(): List<Match>? {
 }
 
 context(_: BytecodePatchContext)
-internal fun Fingerprint.scopedMatchAll(): List<Match> =
+fun Fingerprint.scopedMatchAll(): List<Match> =
     scopedMatchAllOrNull() ?: throw patchException()

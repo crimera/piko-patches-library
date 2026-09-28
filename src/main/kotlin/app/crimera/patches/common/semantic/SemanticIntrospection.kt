@@ -32,16 +32,16 @@ import java.util.ArrayDeque
 private const val OBJECT_DESCRIPTOR = "Ljava/lang/Object;"
 
 context(_: BytecodePatchContext)
-internal fun Fingerprint.requireSingle(target: String): Match {
+fun Fingerprint.requireSingle(target: String): Match {
     val matches = scopedMatchAll()
     return requireExactlyOne("$target", matches)
 }
 private const val STRING_DESCRIPTOR = "Ljava/lang/String;"
 
-internal fun Match.fieldForToStringLabel(label: String): FieldReference =
+fun Match.fieldForToStringLabel(label: String): FieldReference =
     originalMethod.fieldForToStringLabel(label)
 
-internal fun Method.fieldForToStringLabel(label: String): FieldReference {
+fun Method.fieldForToStringLabel(label: String): FieldReference {
     val instructions = implementation?.instructions?.toList().orEmpty()
     val labelIndices = instructions.mapIndexedNotNull { index, instruction ->
         index.takeIf {
@@ -101,7 +101,7 @@ internal fun Method.fieldForToStringLabel(label: String): FieldReference {
     return requireSingleToStringField(label, toString(), helperCandidates)
 }
 
-internal fun requireSingleToStringField(
+fun requireSingleToStringField(
     label: String,
     owner: String,
     candidates: List<FieldReference>,
@@ -110,7 +110,7 @@ internal fun requireSingleToStringField(
     return requireExactlyOne("model field for '$label' in $owner", distinct)
 }
 
-internal fun Match.fieldForBooleanToStringLabel(label: String): FieldReference {
+fun Match.fieldForBooleanToStringLabel(label: String): FieldReference {
     val instructions = originalMethod.implementation?.instructions?.toList().orEmpty()
     val labelIndices = instructions.mapIndexedNotNull { index, instruction ->
         index.takeIf { instruction.getReference<StringReference>()?.string == label }
@@ -125,7 +125,7 @@ internal fun Match.fieldForBooleanToStringLabel(label: String): FieldReference {
     return requireExactlyOne("boolean model field after '$label' in $originalMethod", fields)
 }
 
-internal fun com.android.tools.smali.dexlib2.iface.ClassDef.requireSingleInstanceField(
+fun com.android.tools.smali.dexlib2.iface.ClassDef.requireSingleInstanceField(
     type: String,
     semanticName: String,
 ): FieldReference {
@@ -135,7 +135,7 @@ internal fun com.android.tools.smali.dexlib2.iface.ClassDef.requireSingleInstanc
     return requireExactlyOne("$semanticName field of type $type in $this", matches)
 }
 
-internal fun MutableClass.requirePublicFields(fields: List<FieldReference>) {
+fun MutableClass.requirePublicFields(fields: List<FieldReference>) {
     fields.forEach { field ->
         val definition = requireExactlyOne(
             "model field definition $field in $this",
@@ -148,7 +148,7 @@ internal fun MutableClass.requirePublicFields(fields: List<FieldReference>) {
     }
 }
 
-internal data class ModelFieldAccessor(
+data class ModelFieldAccessor(
     val field: FieldReference,
     val getter: MethodReference?,
 )
@@ -159,7 +159,7 @@ internal data class ModelFieldAccessor(
  * Models may expose fields through generated getters or public fields. Resolve the available
  * representation once so generated bridges can use the same model contract.
  */
-internal fun MutableClass.resolveFieldAccessor(
+fun MutableClass.resolveFieldAccessor(
     field: FieldReference,
     semanticName: String,
 ): ModelFieldAccessor {
@@ -188,7 +188,7 @@ internal fun MutableClass.resolveFieldAccessor(
     throw PatchException("$semanticName has neither a getter nor a public field: $field in $this")
 }
 
-internal fun MutableClass.requireGetter(
+fun MutableClass.requireGetter(
     field: FieldReference,
     semanticName: String,
 ): MethodReference = resolveFieldAccessor(field, semanticName).getter
@@ -207,7 +207,7 @@ private const val WIDE_RESULT_REGISTER = 0
  * [receiver] because every replaced accessor read into the register it read from; only the wide
  * bodies used [WIDE_RESULT_REGISTER].
  */
-internal fun Block.readModelAccessor(
+fun Block.readModelAccessor(
     accessor: ModelFieldAccessor,
     receiver: Int,
     destination: Int = receiver,
@@ -221,7 +221,7 @@ internal fun Block.readModelAccessor(
     moveResult(destination, accessor.field.type)
 }
 
-internal fun MutableClass.patchObjectFieldGetter(
+fun MutableClass.patchObjectFieldGetter(
     name: String,
     ownerDescriptor: String,
     field: FieldReference,
@@ -236,7 +236,7 @@ internal fun MutableClass.patchObjectFieldGetter(
     }
 }
 
-internal fun MutableClass.patchObjectMethodGetter(
+fun MutableClass.patchObjectMethodGetter(
     name: String,
     ownerDescriptor: String,
     getter: MethodReference,
@@ -252,7 +252,7 @@ internal fun MutableClass.patchObjectMethodGetter(
     }
 }
 
-internal fun MutableClass.patchObjectAccessorGetter(
+fun MutableClass.patchObjectAccessorGetter(
     name: String,
     ownerDescriptor: String,
     accessor: ModelFieldAccessor,
@@ -267,7 +267,7 @@ internal fun MutableClass.patchObjectAccessorGetter(
     }
 }
 
-internal fun MutableClass.patchBooleanFieldGetter(
+fun MutableClass.patchBooleanFieldGetter(
     name: String,
     ownerDescriptor: String,
     field: FieldReference,
@@ -281,7 +281,7 @@ internal fun MutableClass.patchBooleanFieldGetter(
     }
 }
 
-internal fun MutableClass.patchBooleanMethodGetter(
+fun MutableClass.patchBooleanMethodGetter(
     name: String,
     ownerDescriptor: String,
     getter: MethodReference,
@@ -296,7 +296,7 @@ internal fun MutableClass.patchBooleanMethodGetter(
     }
 }
 
-internal fun MutableClass.patchBooleanAccessorGetter(
+fun MutableClass.patchBooleanAccessorGetter(
     name: String,
     ownerDescriptor: String,
     accessor: ModelFieldAccessor,
@@ -310,7 +310,7 @@ internal fun MutableClass.patchBooleanAccessorGetter(
     }
 }
 
-internal fun MutableClass.patchWideFieldGetter(
+fun MutableClass.patchWideFieldGetter(
     name: String,
     ownerDescriptor: String,
     field: FieldReference,
@@ -324,7 +324,7 @@ internal fun MutableClass.patchWideFieldGetter(
     }
 }
 
-internal fun MutableClass.patchWideMethodGetter(
+fun MutableClass.patchWideMethodGetter(
     name: String,
     ownerDescriptor: String,
     getter: MethodReference,
@@ -339,7 +339,7 @@ internal fun MutableClass.patchWideMethodGetter(
     }
 }
 
-internal fun MutableClass.patchWideAccessorGetter(
+fun MutableClass.patchWideAccessorGetter(
     name: String,
     ownerDescriptor: String,
     accessor: ModelFieldAccessor,
@@ -360,7 +360,7 @@ internal fun MutableClass.patchWideAccessorGetter(
  * and addresses its parameters through [MutableMethod.p0Register] - the absolute register the
  * release body's `p0` alias refers to.
  */
-internal fun MutableClass.requireBridge(
+fun MutableClass.requireBridge(
     name: String,
     parameters: String,
     returnType: String,
@@ -381,12 +381,12 @@ internal fun MutableClass.requireBridge(
  * head keeps skipping the bridge, because [insertHook] leaves the labels that sit on that first
  * instruction in place (`relocateBranchTargets = false`).
  */
-internal fun MutableMethod.patchBridge(block: Block.() -> Unit) {
+fun MutableMethod.patchBridge(block: Block.() -> Unit) {
     insertHook(index = 0, relocateBranchTargets = false, block = block)
 }
 
 context(context: BytecodePatchContext)
-internal fun MethodReference.resolveCurrentMethod(label: String): Method {
+fun MethodReference.resolveCurrentMethod(label: String): Method {
     val owner = context.classDefByOrNull(definingClass)
         ?: throw PatchException("$label owner was not found: $definingClass")
     val matches = owner.methods.filter { method -> matches(method) }
@@ -394,7 +394,7 @@ internal fun MethodReference.resolveCurrentMethod(label: String): Method {
 }
 
 context(context: BytecodePatchContext)
-internal fun MethodReference.resolveMutableMethodOwner(
+fun MethodReference.resolveMutableMethodOwner(
     label: String,
 ): Pair<MutableClass, MutableMethod> {
     val owner = context.mutableClassDefBy(definingClass)

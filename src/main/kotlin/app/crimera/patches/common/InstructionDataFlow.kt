@@ -6,13 +6,13 @@ import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstructio
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
 
-internal val INTEGER_MOVE_OPCODES =
+val INTEGER_MOVE_OPCODES =
     setOf(Opcode.MOVE, Opcode.MOVE_FROM16, Opcode.MOVE_16)
 
-internal val INTEGER_LITERAL_OPCODES =
+val INTEGER_LITERAL_OPCODES =
     setOf(Opcode.CONST_4, Opcode.CONST_16, Opcode.CONST, Opcode.CONST_HIGH16)
 
-internal val REGISTER_WRITE_OPCODES =
+val REGISTER_WRITE_OPCODES =
     setOf(
         Opcode.CHECK_CAST,
         Opcode.CONST_STRING,
@@ -26,10 +26,10 @@ internal val REGISTER_WRITE_OPCODES =
         Opcode.SGET_OBJECT,
     )
 
-internal val OBJECT_MOVE_OPCODES =
+val OBJECT_MOVE_OPCODES =
     setOf(Opcode.MOVE_OBJECT, Opcode.MOVE_OBJECT_FROM16, Opcode.MOVE_OBJECT_16)
 
-internal fun Instruction.destinationRegisterOrNull(): Int? {
+fun Instruction.destinationRegisterOrNull(): Int? {
     if (opcode in OBJECT_MOVE_OPCODES || opcode in INTEGER_MOVE_OPCODES) {
         return (this as? TwoRegisterInstruction)?.registerA
     }
@@ -38,7 +38,7 @@ internal fun Instruction.destinationRegisterOrNull(): Int? {
 }
 
 /** Collects every integer literal that can reach [register] before [instructionIndex]. */
-internal fun List<Instruction>.resolveIntegerLiterals(
+fun List<Instruction>.resolveIntegerLiterals(
     instructionIndex: Int,
     register: Int,
 ): Set<Int> {
@@ -62,7 +62,7 @@ internal fun List<Instruction>.resolveIntegerLiterals(
 }
 
 /** Traces the single integer literal that reaches [register] on the current path. */
-internal fun List<Instruction>.resolveIntegerLiteralOnCurrentPath(
+fun List<Instruction>.resolveIntegerLiteralOnCurrentPath(
     instructionIndex: Int,
     register: Int,
 ): Int? {
@@ -89,7 +89,7 @@ internal fun List<Instruction>.resolveIntegerLiteralOnCurrentPath(
  * object moves alike. Kotlin lowers a null reference argument to a zero constant that reaches the
  * call through `move-object` aliases, so object moves must be followed to prove a zero/null value.
  */
-internal fun List<Instruction>.resolveConstantOnCurrentPath(
+fun List<Instruction>.resolveConstantOnCurrentPath(
     instructionIndex: Int,
     register: Int,
 ): Int? {
@@ -112,7 +112,7 @@ internal fun List<Instruction>.resolveConstantOnCurrentPath(
 }
 
 /** Follows object moves to prove which value finally reaches [targetRegister]. */
-internal fun List<Instruction>.valueReachesRegister(
+fun List<Instruction>.valueReachesRegister(
     valueIndex: Int,
     valueRegister: Int,
     targetIndex: Int,
@@ -132,7 +132,7 @@ internal fun List<Instruction>.valueReachesRegister(
     return targetRegister in aliases
 }
 
-internal fun Instruction.writesObjectRegister(register: Int): Boolean {
+fun Instruction.writesObjectRegister(register: Int): Boolean {
     if (opcode in OBJECT_MOVE_OPCODES) {
         return (this as? TwoRegisterInstruction)?.registerA == register
     }

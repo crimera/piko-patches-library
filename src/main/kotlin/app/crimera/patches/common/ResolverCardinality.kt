@@ -5,7 +5,7 @@ import app.morphe.patcher.patch.PatchException
 /**
  * Returns the only candidate, or fails with the resolver label and every candidate description.
  */
-internal fun <T> requireExactlyOne(
+fun <T> requireExactlyOne(
     label: String,
     candidates: Collection<T>,
     describe: (T) -> String = { candidate -> candidate.toString() },
@@ -21,7 +21,7 @@ internal fun <T> requireExactlyOne(
 /**
  * Returns the only candidate when present, or fails if the resolver found more than one.
  */
-internal fun <T> requireAtMostOne(
+fun <T> requireAtMostOne(
     label: String,
     candidates: Collection<T>,
     describe: (T) -> String = { candidate -> candidate.toString() },

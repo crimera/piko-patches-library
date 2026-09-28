@@ -16,7 +16,7 @@ import kotlin.system.exitProcess
  * checkout through Gradle. The scanner masks comments and string/character literals before
  * looking for calls, so examples embedded in diagnostics and documentation are not findings.
  */
-internal object ResolverLinter {
+object ResolverLinter {
     enum class Rule(
         val id: String,
         private val description: String,
