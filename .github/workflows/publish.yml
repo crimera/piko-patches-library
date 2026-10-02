@@ -53,6 +53,13 @@ jobs:
           unzip -l "$RUNNER_TEMP/extension-classes.jar" | grep -q 'app/morphe/extension/crimera/logging/PikoLogger.class'
           echo "$AAR: extension classes verified"
 
+          ./gradlew :extension-settings:assembleRelease --no-daemon
+          SETTINGS_AAR=extension-settings/build/outputs/aar/extension-settings-release.aar
+          unzip -p "$SETTINGS_AAR" classes.jar > "$RUNNER_TEMP/extension-settings-classes.jar"
+          unzip -l "$RUNNER_TEMP/extension-settings-classes.jar" | grep -q 'app/morphe/extension/crimera/settings/SettingsRegistry.class'
+          unzip -l "$RUNNER_TEMP/extension-settings-classes.jar" | grep -q 'app/morphe/extension/crimera/theme/PikoTheme.class'
+          echo "$SETTINGS_AAR: settings classes verified"
+
       - name: Test
         run: ./gradlew test --no-daemon
 

@@ -18,6 +18,14 @@ The `piko-extension-library` artifact (the `:extension` module) is the in-app co
 |---|---|
 | `app.morphe.extension.crimera.logging` | `PikoLogger` (setting-gated logcat output plus a bounded capture buffer), `LogSanitizer` (credential/URL redaction), `LogExporter` (writes captured entries to Downloads) |
 
+The `piko-extension-settings` artifact (the `:extension-settings` module) is an opt-in settings system that depends on the logging artifact. Apps that only need logging do not take it.
+
+| Package | Contents |
+|---|---|
+| `app.morphe.extension.crimera.settings` | `SettingsRegistry` (settings catalog and typed reads), `SettingsHost` (per-app configuration), `PikoSettingsActivity`/`PikoSettingsFragment` (screens, search, backup/restore), `SettingsUi` and `CustomScreenFragment` (building blocks for app-owned screens) |
+| `app.morphe.extension.crimera.theme` | `SettingsTheme` (the interface apps implement), `SettingsColorScheme`/`SchemeSettingsTheme` (ready-made palette-based theme), `PikoTheme` (installed theme and shortcuts) |
+| `app.morphe.extension.crimera.ui` | `DialogView`, `ButtonView`, `ChoiceRow`: widgets that draw only with the installed theme |
+
 ## Usage
 
 ```kotlin
@@ -61,9 +69,50 @@ includeBuild("../piko-patches-library") {
     dependencySubstitution {
         substitute(module("app.crimera:piko-patches-library")).using(project(":"))
         substitute(module("app.crimera:piko-extension-library")).using(project(":extension"))
+        substitute(module("app.crimera:piko-extension-settings")).using(project(":extension-settings"))
     }
 }
 ```
+
+## Settings
+
+Add `app.crimera:piko-extension-settings` next to the logging artifact: same version, `api` in the module that is dexed into the app, `compileOnly` in app extension modules. The substitution snippet above covers local development.
+
+Wiring an app takes four things, all from the app's own extension and patches:
+
+1. **Strings.** Extension code ships no resources, so the app's patch adds the strings listed in `SettingsString` (for example `settings_title`, `settings_cancel`, `restart_title`). Names are the host's prefix plus the suffix, so with the prefix `myapp_` the title is `myapp_settings_title`. `SettingsRegistry` checks all of them when it freezes.
+2. **Startup.** Before `SettingsRegistry.load()` runs (the app's init hook), install the theme and the host:
+
+   ```java
+   PikoTheme.install(new MyAppSettingsTheme());
+   SettingsHost.install(SettingsHost.builder(MY_LOGGER, "myapp_")
+           .backupFilePrefix("myapp_settings_")
+           .icons("ic_arrow_back", "ic_search", "ic_close")   // optional drawables in the app
+           .beforeBackup(MyStores::loadAll)                   // optional
+           .contributor(MyBuiltInSettings::register)          // native registrations
+           .build());
+   ```
+
+3. **Activity.** Declare a subclass of `PikoSettingsActivity` in the manifest so the component name stays in the app's package. Override `onUnhandledActivityResult` to receive results of app features launched from a settings screen.
+4. **Settings.** Register categories, groups and items with the `SettingsRegistry.register*`/`configure*` methods, either natively from a `Contributor` or by injecting calls at the start of `SettingsRegistry.load()` from a patch. Read values anywhere with `getBooleanOrDefault`/`getStringOrDefault`/`getStringSetOrDefault`.
+
+### Theming
+
+The widgets never hard-code a color or font; they read the theme the app installs with `PikoTheme.install`. A theme answers three questions: is the UI dark, what is the color for each `SettingsColor` role, and which typeface goes with each `SettingsFont` role. It can also run code against the settings activity before it inflates (`applyHostTheme`), which is where an app applies its own resource styles.
+
+For two fixed palettes, derive from the baselines and override what differs:
+
+```java
+PikoTheme.install(SchemeSettingsTheme.builder()
+        .light(SettingsColorScheme.builder().from(SettingsColorScheme.baselineLight())
+                .set(SettingsColor.ACCENT, 0xFFE91E63).build())
+        .dark(SettingsColorScheme.baselineDark())
+        .darkWhen(context -> MyApp.isDarkTheme())     // defaults to the system night mode
+        .typefaces((context, font, fallback) -> MyFonts.apply(fallback))
+        .build());
+```
+
+When colors depend on runtime state (the app's own theme chooser, dynamic system colors), implement `SettingsTheme` directly; `color` and `isDark` are called on every view build and draw, so resolve cheaply. An incomplete `SettingsColorScheme` fails at `build()`, and installing `null` restores the baseline.
 
 ## Linters
 

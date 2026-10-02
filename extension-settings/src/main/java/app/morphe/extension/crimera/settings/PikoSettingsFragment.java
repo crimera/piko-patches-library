@@ -1,0 +1,204 @@
+package app.morphe.extension.crimera.settings;
+
+import android.app.Activity;
+import android.app.Fragment;
+import android.content.Context;
+import android.os.Bundle;
+import android.preference.PreferenceFragment;
+import android.preference.PreferenceScreen;
+import android.view.View;
+import android.widget.ListView;
+
+import java.util.List;
+
+@SuppressWarnings("deprecation")
+public final class PikoSettingsFragment extends PreferenceFragment {
+    private static final String GROUP_ID_ARGUMENT = "group_id";
+    private SettingsNode.Group group;
+    private PreferenceScreen screen;
+    private SettingsSearchField searchField;
+
+    static PikoSettingsFragment forGroup(SettingsNode.Group group) {
+        PikoSettingsFragment fragment = new PikoSettingsFragment();
+        Bundle arguments = new Bundle();
+        arguments.putString(GROUP_ID_ARGUMENT, group.id);
+        fragment.setArguments(arguments);
+        return fragment;
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Activity activity = requireActivity();
+        Bundle arguments = getArguments();
+        if (arguments != null) {
+            String groupId = arguments.getString(GROUP_ID_ARGUMENT);
+            if (groupId != null) group = SettingsRegistry.getGroup(groupId);
+        }
+
+        Context preferenceContext = PikoSettingsActivity.createPreferenceContext(activity);
+        screen = getPreferenceManager().createPreferenceScreen(preferenceContext);
+        setPreferenceScreen(screen);
+        if (group == null) {
+            renderRoot();
+            return;
+        }
+        SettingsRenderer.renderGroup(
+                activity,
+                screen,
+                group,
+                this::openGroup,
+                this::openScreen
+        );
+    }
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        if (group != null) return;
+
+        View list = view.findViewById(android.R.id.list);
+        if (!(list instanceof ListView listView)) return;
+
+        Context context = requireActivity();
+        searchField = new SettingsSearchField(context);
+        listView.addHeaderView(searchField, null, false);
+
+        searchField.setOnQueryChangedListener(query -> {
+            SettingsSearchSession.update(query);
+            renderRoot();
+        });
+        searchField.setQuery(SettingsSearchSession.query());
+        renderRoot();
+    }
+
+    private void renderRoot() {
+        if (group != null || screen == null) return;
+
+        String query = SettingsSearchSession.query();
+        updatePatchVersionFooterVisibility();
+        screen.removeAll();
+        if (query.trim().isEmpty()) {
+            setSearchEmptyState(false, query);
+            SettingsRenderer.render(screen, this::openGroup);
+            return;
+        }
+
+        List<SettingsSearchMatcher.Match> matches =
+                SettingsSearchMatcher.match(SettingsSearchIndex.results(), query);
+        int resultCount = SettingsRenderer.renderSearchResults(
+                requireActivity(),
+                screen,
+                query,
+                matches,
+                this::openScreen
+        );
+        setSearchEmptyState(resultCount == 0, query);
+    }
+
+
+    private void setSearchEmptyState(boolean visible, String query) {
+        if (searchField == null) return;
+        CharSequence message = SettingsHost.require().string(
+                SettingsString.SEARCH_NO_RESULTS,
+                query == null ? "" : query.trim()
+        );
+        searchField.setNoResults(visible, message);
+    }
+
+    private void updatePatchVersionFooterVisibility() {
+        Activity activity = getActivity();
+        if (!(activity instanceof PikoSettingsActivity settingsActivity)) return;
+        settingsActivity.setPatchVersionFooterVisible(
+                group == null && SettingsSearchSession.query().trim().isEmpty()
+        );
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Activity activity = requireActivity();
+        if (!(activity instanceof PikoSettingsActivity settingsActivity)) return;
+        settingsActivity.setPageTitle(
+                group == null
+                        ? SettingsHost.require().string(SettingsString.SETTINGS_TITLE)
+                        : group.title.toString()
+        );
+        updatePatchVersionFooterVisibility();
+    }
+
+    private void openGroup(SettingsNode.Group group) {
+        Activity activity = requireActivity();
+        if (activity instanceof PikoSettingsActivity settingsActivity) {
+            settingsActivity.setPatchVersionFooterVisible(false);
+        }
+        int containerId = PikoSettingsActivity.SETTINGS_CONTAINER_ID;
+        getFragmentManager()
+                .beginTransaction()
+                .replace(containerId, forGroup(group))
+                .addToBackStack(group.id)
+                .commit();
+    }
+
+    private void openScreen(SettingsNode.CustomScreen screen) {
+        Activity activity = requireActivity();
+        if (activity instanceof PikoSettingsActivity settingsActivity) {
+            settingsActivity.setPatchVersionFooterVisible(false);
+        }
+        try {
+            Fragment fragment = instantiateFragment(activity, screen.fragmentClassDescriptor);
+            int containerId = PikoSettingsActivity.SETTINGS_CONTAINER_ID;
+            getFragmentManager()
+                    .beginTransaction()
+                    .replace(containerId, fragment)
+                    .addToBackStack(screen.id)
+                    .commit();
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not open custom screen: " + screen.id, exception);
+        }
+    }
+
+    private static Fragment instantiateFragment(Activity activity, String descriptor)
+            throws ReflectiveOperationException {
+        String className = descriptor.substring(1, descriptor.length() - 1).replace('/', '.');
+        Class<?> fragmentClass = Class.forName(className, true, activity.getClassLoader());
+        if (!Fragment.class.isAssignableFrom(fragmentClass)) {
+            throw new IllegalArgumentException("Not an Android fragment: " + className);
+        }
+        return (Fragment) fragmentClass.getDeclaredConstructor().newInstance();
+    }
+
+    private Activity requireActivity() {
+        Activity activity = getActivity();
+        if (activity == null) throw new IllegalStateException("Settings activity is missing");
+        return activity;
+    }
+
+    @Override
+    public void onDestroy() {
+        Activity activity = getActivity();
+        if (group == null && activity != null && activity.isFinishing()) {
+            SettingsSearchSession.reset();
+        }
+        super.onDestroy();
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        View root = getView();
+        if (root == null) return;
+
+        View list = root.findViewById(android.R.id.list);
+        if (!(list instanceof ListView listView)) return;
+
+        int verticalPadding = Math.round(8 * getResources().getDisplayMetrics().density);
+        int backgroundColor = PikoPreferenceStyle.backgroundColor(root.getContext());
+        root.setBackgroundColor(backgroundColor);
+        listView.setBackgroundColor(backgroundColor);
+        listView.setPadding(0, verticalPadding, 0, verticalPadding);
+        listView.setClipToPadding(false);
+        listView.setDivider(null);
+        listView.setDividerHeight(0);
+    }
+}

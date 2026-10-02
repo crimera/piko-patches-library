@@ -47,8 +47,11 @@ class SharedInfrastructureBoundaryTest {
 
     @Test
     fun `shared extension code does not reference app-specific packages`() {
-        val root = Paths.get("extension/src/main/java")
-        assertTrue(Files.isDirectory(root), "shared extension source is missing: $root")
+        val roots = listOf(
+            Paths.get("extension/src/main/java"),
+            Paths.get("extension-settings/src/main/java"),
+        )
+        roots.forEach { assertTrue(Files.isDirectory(it), "shared extension source is missing: $it") }
 
         val forbidden = listOf(
             "app.morphe.extension.newx",
@@ -56,14 +59,16 @@ class SharedInfrastructureBoundaryTest {
             "app.morphe.extension.twitter",
         )
         val violations = mutableListOf<String>()
-        Files.walk(root).use { paths ->
-            paths
-                .filter { it.isRegularFile() && it.toString().endsWith(".java") }
-                .forEach { path ->
-                    path.readText().lineSequence().forEachIndexed { index, line ->
-                        if (forbidden.any(line::contains)) violations += "$path:${index + 1}: ${line.trim()}"
+        roots.forEach { root ->
+            Files.walk(root).use { paths ->
+                paths
+                    .filter { it.isRegularFile() && it.toString().endsWith(".java") }
+                    .forEach { path ->
+                        path.readText().lineSequence().forEachIndexed { index, line ->
+                            if (forbidden.any(line::contains)) violations += "$path:${index + 1}: ${line.trim()}"
+                        }
                     }
-                }
+            }
         }
 
         assertTrue(
