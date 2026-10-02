@@ -44,4 +44,31 @@ class SharedInfrastructureBoundaryTest {
             "shared infrastructure imports app-specific code:\n" + violations.joinToString("\n"),
         )
     }
+
+    @Test
+    fun `shared extension code does not reference app-specific packages`() {
+        val root = Paths.get("extension/src/main/java")
+        assertTrue(Files.isDirectory(root), "shared extension source is missing: $root")
+
+        val forbidden = listOf(
+            "app.morphe.extension.newx",
+            "app.morphe.extension.instagram",
+            "app.morphe.extension.twitter",
+        )
+        val violations = mutableListOf<String>()
+        Files.walk(root).use { paths ->
+            paths
+                .filter { it.isRegularFile() && it.toString().endsWith(".java") }
+                .forEach { path ->
+                    path.readText().lineSequence().forEachIndexed { index, line ->
+                        if (forbidden.any(line::contains)) violations += "$path:${index + 1}: ${line.trim()}"
+                    }
+                }
+        }
+
+        assertTrue(
+            violations.isEmpty(),
+            "shared extension code references app-specific code:\n" + violations.joinToString("\n"),
+        )
+    }
 }

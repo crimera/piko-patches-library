@@ -1,5 +1,17 @@
 rootProject.name = "piko-patches-library"
 
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+
+// In-app (dex) code shipped to the apps the patches modify. The root project is the patch-side jar.
+include(":extension")
+
+
 dependencyResolutionManagement {
     repositories {
         mavenCentral()

@@ -47,6 +47,12 @@ jobs:
           unzip -l "$JAR" | grep -q 'META-INF/NOTICE'
           echo "$JAR: classes and notices verified"
 
+          ./gradlew :extension:assembleRelease --no-daemon
+          AAR=extension/build/outputs/aar/extension-release.aar
+          unzip -p "$AAR" classes.jar > "$RUNNER_TEMP/extension-classes.jar"
+          unzip -l "$RUNNER_TEMP/extension-classes.jar" | grep -q 'app/morphe/extension/crimera/logging/PikoLogger.class'
+          echo "$AAR: extension classes verified"
+
       - name: Test
         run: ./gradlew test --no-daemon
 

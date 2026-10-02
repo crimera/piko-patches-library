@@ -4,6 +4,10 @@ plugins {
     `java-library`
     kotlin("jvm") version "2.2.21"
     `maven-publish`
+    // Declared here so the :extension module shares this build's plugin classpath (one Kotlin
+    // Gradle plugin version) instead of resolving AGP's bundled Kotlin separately. Matches the AGP
+    // the Morphe patches Gradle plugin applies to consumer extension modules.
+    id("com.android.library") version "9.1.0" apply false
 }
 
 group = "app.crimera"

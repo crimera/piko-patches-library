@@ -12,13 +12,31 @@ Shared patch-side infrastructure and resolver safeguards for [piko](https://gith
 | `app.crimera.tools.lint` | Source-level resolver linter and extension-descriptor gate |
 | `app.morphe.patches.all.misc.resources` | Piko's `AddResourcesPatch` fork with its locale set |
 
+The `piko-extension-library` artifact (the `:extension` module) is the in-app counterpart: Java that is dexed into the patched app.
+
+| Package | Contents |
+|---|---|
+| `app.morphe.extension.crimera.logging` | `PikoLogger` (setting-gated logcat output plus a bounded capture buffer), `LogSanitizer` (credential/URL redaction), `LogExporter` (writes captured entries to Downloads) |
+
 ## Usage
 
 ```kotlin
 dependencies {
-    implementation("app.crimera:piko-patches-library:0.1.0")
+    implementation("app.crimera:piko-patches-library:0.2.0")
 }
 ```
+
+Extension code is a separate artifact, taken by the module that is dexed into the app (Morphe's `extensions/shared`) and `compileOnly` by app extension modules:
+
+```kotlin
+// extensions/shared/library/build.gradle.kts
+dependencies { api("app.crimera:piko-extension-library:0.2.0") }
+
+// extensions/<app>/build.gradle.kts
+dependencies { compileOnly("app.crimera:piko-extension-library:0.2.0") }
+```
+
+`PikoLogger` takes `BooleanSupplier` gates, so each app decides where its switches live and keeps a thin static facade over one instance.
 
 The artifact is published to GitHub Packages (`maven.pkg.github.com/crimera/piko-patches-library`). Add the repository with credentials in the consumer's `settings.gradle.kts`:
 
@@ -39,7 +57,12 @@ dependencyResolutionManagement {
 For local development, substitute the published artifact with this checkout:
 
 ```kotlin
-includeBuild("../piko-patches-library")
+includeBuild("../piko-patches-library") {
+    dependencySubstitution {
+        substitute(module("app.crimera:piko-patches-library")).using(project(":"))
+        substitute(module("app.crimera:piko-extension-library")).using(project(":extension"))
+    }
+}
 ```
 
 ## Linters
