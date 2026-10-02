@@ -85,6 +85,11 @@ public final class PikoTheme {
         return color(context, SettingsColor.CHECKBOX_CHECKED);
     }
 
+    /** Drag handle of a bottom sheet; see {@link SettingsTheme#dragHandleColor}. */
+    public static int dragHandleColor(Context context) {
+        return installed.dragHandleColor(context);
+    }
+
     /** Pressed-state ripple: primary text at low alpha, so it follows the installed palette. */
     public static int rippleColor(Context context) {
         int alpha = isDark(context) ? 40 : 32;
@@ -124,12 +129,32 @@ public final class PikoTheme {
         ));
     }
 
+    /**
+     * Linear blend of two ARGB colors. Plain bit math (no Android calls), so it is usable from
+     * host code and unit tests; see {@link SettingsTheme#dragHandleColor} for one consumer.
+     */
     public static int blend(int color1, int color2, float ratio) {
         float inverseRatio = 1f - ratio;
-        float r = Color.red(color1) * inverseRatio + Color.red(color2) * ratio;
-        float g = Color.green(color1) * inverseRatio + Color.green(color2) * ratio;
-        float b = Color.blue(color1) * inverseRatio + Color.blue(color2) * ratio;
-        float a = Color.alpha(color1) * inverseRatio + Color.alpha(color2) * ratio;
-        return Color.argb((int) a, (int) r, (int) g, (int) b);
+        int alpha = (int) (alpha(color1) * inverseRatio + alpha(color2) * ratio);
+        int red = (int) (red(color1) * inverseRatio + red(color2) * ratio);
+        int green = (int) (green(color1) * inverseRatio + green(color2) * ratio);
+        int blue = (int) (blue(color1) * inverseRatio + blue(color2) * ratio);
+        return (alpha << 24) | (red << 16) | (green << 8) | blue;
+    }
+
+    private static int alpha(int color) {
+        return (color >>> 24) & 0xFF;
+    }
+
+    private static int red(int color) {
+        return (color >> 16) & 0xFF;
+    }
+
+    private static int green(int color) {
+        return (color >> 8) & 0xFF;
+    }
+
+    private static int blue(int color) {
+        return color & 0xFF;
     }
 }

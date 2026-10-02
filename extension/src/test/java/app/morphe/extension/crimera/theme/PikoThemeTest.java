@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import android.content.Context;
+
 import org.junit.After;
 import org.junit.Test;
 
@@ -61,6 +63,47 @@ public final class PikoThemeTest {
                 SettingsColorScheme.baselineLight().get(SettingsColor.ACCENT),
                 PikoTheme.primaryAccent(null)
         );
+    }
+
+    @Test
+    public void blendInterpolatesEveryArgbChannel() {
+        // Midpoints: ff/ff -> ff, 10/40 -> 28, 20/50 -> 38, 30/60 -> 48.
+        assertEquals(0xFF283848, PikoTheme.blend(0xFF102030, 0xFF405060, 0.5f));
+        assertEquals(0x7F7F7F7F, PikoTheme.blend(0x00000000, 0xFFFFFFFF, 0.5f));
+        assertEquals(0xFF102030, PikoTheme.blend(0xFF102030, 0xFF405060, 0f));
+        assertEquals(0xFF405060, PikoTheme.blend(0xFF102030, 0xFF405060, 1f));
+    }
+
+    @Test
+    public void dragHandleDefaultsToTheTextTintOverTheSheetSurface() {
+        PikoTheme.install(SchemeSettingsTheme.builder()
+                .light(SettingsColorScheme.baselineLight())
+                .build());
+
+        // White surface over #0F1419 text at 0.22: 0.78 * 255 + 0.22 * channel.
+        assertEquals(0xFFCACBCC, PikoTheme.dragHandleColor(null));
+    }
+
+    @Test
+    public void themeCanOverrideTheDragHandleColor() {
+        PikoTheme.install(new SettingsTheme() {
+            @Override
+            public boolean isDark(Context context) {
+                return false;
+            }
+
+            @Override
+            public int color(Context context, SettingsColor role) {
+                return 0;
+            }
+
+            @Override
+            public int dragHandleColor(Context context) {
+                return 0xFF555555;
+            }
+        });
+
+        assertEquals(0xFF555555, PikoTheme.dragHandleColor(null));
     }
 
     @Test

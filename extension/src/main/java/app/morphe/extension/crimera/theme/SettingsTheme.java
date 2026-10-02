@@ -13,11 +13,27 @@ import android.graphics.Typeface;
  * Methods are called on the UI thread, once per view build or draw, so they should be cheap.
  */
 public interface SettingsTheme {
+    /** How far {@link #dragHandleColor} leans towards {@link SettingsColor#ON_SURFACE}. */
+    float DRAG_HANDLE_TINT = 0.22f;
+
     /** Whether the settings UI is currently dark. Drives system bar icons and the dialog base. */
     boolean isDark(Context context);
 
     /** The color for {@code role} in the current brightness. */
     int color(Context context, SettingsColor role);
+
+    /**
+     * Drag handle of a bottom sheet. The default is a neutral tint of the primary text over the
+     * sheet surface; an app whose design system ships a dedicated handle color (Instagram's
+     * creation-tools grey, for example) overrides this instead of restyling the surface roles.
+     */
+    default int dragHandleColor(Context context) {
+        return PikoTheme.blend(
+                color(context, SettingsColor.SURFACE_CONTAINER),
+                color(context, SettingsColor.ON_SURFACE),
+                DRAG_HANDLE_TINT
+        );
+    }
 
     /**
      * Restyles text. {@code fallback} is the typeface the widget would use unchanged; return it
