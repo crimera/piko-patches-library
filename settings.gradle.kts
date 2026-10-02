@@ -12,6 +12,8 @@ pluginManagement {
 include(":extension")
 // Themeable settings registry, renderer and widgets; depends on :extension for logging.
 include(":extension-settings")
+// Patch-side counterpart of :extension-settings: the DSL and bytecode injection apps use to contribute settings.
+include(":patches-settings")
 
 
 dependencyResolutionManagement {

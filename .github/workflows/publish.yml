@@ -60,6 +60,11 @@ jobs:
           unzip -l "$RUNNER_TEMP/extension-settings-classes.jar" | grep -q 'app/morphe/extension/crimera/theme/PikoTheme.class'
           echo "$SETTINGS_AAR: settings classes verified"
 
+          ./gradlew :patches-settings:jar --no-daemon
+          SETTINGS_JAR=$(ls patches-settings/build/libs/patches-settings-*.jar | grep -v sources | head -1)
+          unzip -l "$SETTINGS_JAR" | grep -q 'app/crimera/patches/settings/SettingsContributionKt.class'
+          echo "$SETTINGS_JAR: patch-side settings classes verified"
+
       - name: Test
         run: ./gradlew test --no-daemon
 

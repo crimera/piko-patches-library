@@ -26,6 +26,12 @@ The `piko-extension-settings` artifact (the `:extension-settings` module) is an 
 | `app.morphe.extension.crimera.theme` | `SettingsTheme` (the interface apps implement), `SettingsColorScheme`/`SchemeSettingsTheme` (ready-made palette-based theme), `PikoTheme` (installed theme and shortcuts) |
 | `app.morphe.extension.crimera.ui` | `DialogView`, `ButtonView`, `ChoiceRow`: widgets that draw only with the installed theme |
 
+The `piko-patches-settings` artifact (the `:patches-settings` module) is the patch-side counterpart, kept separate from the root jar so a consumer takes only these classes.
+
+| Package | Contents |
+|---|---|
+| `app.crimera.patches.settings` | `SettingsPatchConfig`, the declaration DSL (`contributeSettings`, `settingsToggle`, `settingsSingleChoice`, …), setting definitions and read emitters (`injectRead`, `returnVoidIfEnabled`, …), `prepareSettingsRegistryLoad`, `insertSettingsStartupHook`, `SettingsRegistrationState.inject` |
+
 ## Usage
 
 ```kotlin
@@ -70,6 +76,7 @@ includeBuild("../piko-patches-library") {
         substitute(module("app.crimera:piko-patches-library")).using(project(":"))
         substitute(module("app.crimera:piko-extension-library")).using(project(":extension"))
         substitute(module("app.crimera:piko-extension-settings")).using(project(":extension-settings"))
+        substitute(module("app.crimera:piko-patches-settings")).using(project(":patches-settings"))
     }
 }
 ```
@@ -95,6 +102,30 @@ Wiring an app takes four things, all from the app's own extension and patches:
 
 3. **Activity.** Declare a subclass of `PikoSettingsActivity` in the manifest so the component name stays in the app's package. Override `onUnhandledActivityResult` to receive results of app features launched from a settings screen.
 4. **Settings.** Register categories, groups and items with the `SettingsRegistry.register*`/`configure*` methods, either natively from a `Contributor` or by injecting calls at the start of `SettingsRegistry.load()` from a patch. Read values anywhere with `getBooleanOrDefault`/`getStringOrDefault`/`getStringSetOrDefault`.
+
+### Contributing settings from patches
+
+Declare an app's settings from its patches with `piko-patches-settings`. The app defines one `SettingsPatchConfig` (its base settings patch, the allowed shape of IDs and string names, and an error label) and exposes thin wrappers so call sites stay short:
+
+```kotlin
+val MY_SETTINGS = SettingsPatchConfig(
+    basePatch = myAppSettingsPatch,
+    idPattern = Regex("myapp\\.[a-z0-9._-]+"),
+    resourceNamePattern = Regex("piko_myapp_[a-z0-9_]+"),
+    label = "MyApp",
+)
+
+val hideAdsPatch = bytecodePatch(name = "Hide ads") {
+    val ads = settingsToggle(MY_SETTINGS, id = "myapp.ads.hide", category = Categories.FEED,
+        strings = settingStrings("piko_myapp_hide_ads"), defaultValue = true)
+    execute {
+        // ... find the method, then read the setting in bytecode:
+        ads.returnVoidIfDisabled(method, 0)
+    }
+}
+```
+
+Declaring a setting makes the patch depend on a contribution patch that injects the registration calls into `SettingsRegistry.load()`. The app's base patch supplies the app-specific parts: it adds its extension and resources, declares its `PikoSettingsActivity` subclass in the manifest, hooks an entry point that opens it, and calls `prepareSettingsRegistryLoad()` and `insertSettingsStartupHook(initMethod, "L…/MyAppSettingsHost;->install()V")` from its `execute` block. Mounted (root) installs cannot add a manifest activity, so they are not supported yet.
 
 ### Theming
 

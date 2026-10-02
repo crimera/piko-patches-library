@@ -15,8 +15,11 @@ import kotlin.test.assertTrue
 class SharedInfrastructureBoundaryTest {
     @Test
     fun `shared infrastructure does not import app-specific packages`() {
-        val root = Paths.get("src/main/kotlin/app/crimera/patches/common")
-        assertTrue(Files.isDirectory(root), "shared package is missing: $root")
+        val roots = listOf(
+            Paths.get("src/main/kotlin/app/crimera/patches/common"),
+            Paths.get("patches-settings/src/main/kotlin/app/crimera/patches/settings"),
+        )
+        roots.forEach { assertTrue(Files.isDirectory(it), "shared package is missing: $it") }
 
         val forbidden = listOf(
             "app.crimera.patches.newx",
@@ -24,19 +27,21 @@ class SharedInfrastructureBoundaryTest {
             "app.crimera.patches.twitter",
         )
         val violations = mutableListOf<String>()
-        Files.walk(root).use { paths ->
-            paths
-                .filter { it.isRegularFile() && it.toString().endsWith(".kt") }
-                .forEach { path ->
-                    path.readText().lineSequence().forEachIndexed { index, line ->
-                        val trimmed = line.trim()
-                        if (trimmed.startsWith("import ").not()) return@forEachIndexed
-                        val imported = trimmed.removePrefix("import ")
-                        if (forbidden.any(imported::startsWith)) {
-                            violations += "$path:${index + 1}: $trimmed"
+        roots.forEach { root ->
+            Files.walk(root).use { paths ->
+                paths
+                    .filter { it.isRegularFile() && it.toString().endsWith(".kt") }
+                    .forEach { path ->
+                        path.readText().lineSequence().forEachIndexed { index, line ->
+                            val trimmed = line.trim()
+                            if (trimmed.startsWith("import ").not()) return@forEachIndexed
+                            val imported = trimmed.removePrefix("import ")
+                            if (forbidden.any(imported::startsWith)) {
+                                violations += "$path:${index + 1}: $trimmed"
+                            }
                         }
                     }
-                }
+            }
         }
 
         assertTrue(
