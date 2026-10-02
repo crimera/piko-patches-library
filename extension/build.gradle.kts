@@ -13,6 +13,8 @@ android {
         // The lowest floor among the apps consuming the library (Instagram builds start at API 28,
         // the extension floor is 26). The settings UI only uses framework APIs available on API 26.
         minSdk = 26
+
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     compileOptions {
