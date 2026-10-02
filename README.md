@@ -25,7 +25,7 @@ The same artifact carries an opt-in settings system, themeable and driven by the
 |---|---|
 | `app.morphe.extension.crimera.settings` | `SettingsRegistry` (settings catalog and typed reads), `SettingsHost` (per-app configuration), `PikoSettingsActivity`/`PikoSettingsFragment` (screens, search, backup/restore), `SettingsUi` and `CustomScreenFragment` (building blocks for app-owned screens) |
 | `app.morphe.extension.crimera.theme` | `SettingsTheme` (the interface apps implement), `SettingsColorScheme`/`SchemeSettingsTheme` (ready-made palette-based theme), `PikoTheme` (installed theme and shortcuts) |
-| `app.morphe.extension.crimera.ui` | `DialogView`, `ButtonView`, `ChoiceRow`: widgets that draw only with the installed theme |
+| `app.morphe.extension.crimera.ui` | `DialogView`, `ButtonView`, `ChoiceRow`, `BottomSheetView` + `ListItem`/`IconView`: widgets that draw only with the installed theme |
 
 ## Usage
 
@@ -137,6 +137,30 @@ PikoTheme.install(SchemeSettingsTheme.builder()
 ```
 
 When colors depend on runtime state (the app's own theme chooser, dynamic system colors), implement `SettingsTheme` directly; `color` and `isDark` are called on every view build and draw, so resolve cheaply. An incomplete `SettingsColorScheme` fails at `build()`, and installing `null` restores the baseline.
+
+### Bottom sheets
+
+`BottomSheetView` is the shared sheet container: edge-to-edge, swipe-down to dismiss, Compose Material 3 slide motion, a title/subtitle header, an optional scrollable body of `ListItem` rows and one or more `ButtonView` actions. It reads the same installed theme as every other widget:
+
+- Sheet background `SURFACE_CONTAINER`, title `ON_SURFACE`, subtitle `ON_SURFACE_VARIANT`, dividers `OUTLINE`, pressed states `rippleColor`.
+- `ListItem` badges sit on `SURFACE_VARIANT`; the caller passes `ACCENT_CONTAINER` (`PikoTheme.primaryContainer`) for selected rows.
+- The drag handle is `SettingsTheme.dragHandleColor`, a 22% tint of `ON_SURFACE` over `SURFACE_CONTAINER` by default; a host whose design system ships a dedicated handle color (Instagram's creation-tools grey) overrides that method.
+
+```java
+BottomSheetView sheet = new BottomSheetView(activity);
+sheet.setTitle("Download");
+
+ListItem row = new ListItem(activity);
+row.setTitle("Video 1");
+row.setLeadingIcon(IconView.IconType.VIDEO, PikoTheme.primaryAccent(activity),
+        PikoTheme.surfaceVariant(activity));
+
+sheet.setScrollableBodyView(rows);
+sheet.addButton(new ButtonView(activity, ButtonView.ButtonStyle.FILLED, "Download all"));
+sheet.show();
+```
+
+Install the theme before the first sheet is built. piko-ig-lite's `DownloadSheet` and its `InstagramSheetTheme` are a worked example of an app theme that resolves the host's own theme attributes.
 
 ## Linters
 
