@@ -37,6 +37,13 @@ import app.morphe.extension.crimera.downloader.model.DownloadRequest;
 public final class DownloadEngine implements DownloadController {
     private static final int MAX_RECENT = 256;
 
+    /**
+     * Highest id the engine hands out itself. A download's progress notice uses its id as the
+     * notification id, so ids above this are left to the notification code for completed and failed
+     * notices, and the two can never be the same notification.
+     */
+    public static final int MAX_FRESH_ID = (1 << 30) - 1;
+
     @Nullable private final Context applicationContext;
     private final DestinationWriter destination;
     private final TransferRunner transfer;
@@ -191,7 +198,7 @@ public final class DownloadEngine implements DownloadController {
                 }
                 continue;
             }
-            int next = current == Integer.MAX_VALUE ? 1 : current + 1;
+            int next = current >= MAX_FRESH_ID ? 1 : current + 1;
             if (nextId.compareAndSet(current, next)) {
                 return current;
             }

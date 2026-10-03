@@ -11,10 +11,22 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import app.morphe.extension.crimera.downloader.DownloadEngine;
 import app.morphe.extension.crimera.downloader.events.FailureReason;
 
 public final class DownloadNotificationsPureTest {
     private final NotificationTexts texts = new EnglishNotificationTexts();
+
+    @Test
+    public void terminalNoticeIdsNeverCollideWithDownloadIds() {
+        // A download's progress notice has the download's id; a completed notice that reused it
+        // would be dismissed right after being posted.
+        assertTrue(DownloadNotifications.FIRST_TERMINAL_ID > DownloadEngine.MAX_FRESH_ID);
+        int first = DownloadNotifications.newNotificationId();
+        int second = DownloadNotifications.newNotificationId();
+        assertTrue(first > DownloadEngine.MAX_FRESH_ID);
+        assertEquals(first + 1, second);
+    }
 
     @Test
     public void progressNormalPercent() {

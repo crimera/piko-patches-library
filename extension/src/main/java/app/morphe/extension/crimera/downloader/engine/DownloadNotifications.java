@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import app.morphe.extension.crimera.downloader.CancelReceiver;
+import app.morphe.extension.crimera.downloader.DownloadEngine;
 import app.morphe.extension.crimera.downloader.events.FailureReason;
 import app.morphe.extension.crimera.downloader.model.DownloadRequest;
 
@@ -26,7 +27,10 @@ import app.morphe.extension.crimera.downloader.model.DownloadRequest;
  * Static helpers for posting, updating, and dismissing download notifications.
  */
 public final class DownloadNotifications {
-    private static final AtomicInteger NEXT_NOTIFICATION_ID = new AtomicInteger(1);
+    /** Completed and failed notices count up from just above every id the engine hands out. */
+    static final int FIRST_TERMINAL_ID = DownloadEngine.MAX_FRESH_ID + 1;
+
+    private static final AtomicInteger NEXT_NOTIFICATION_ID = new AtomicInteger(FIRST_TERMINAL_ID);
 
     enum FailureTextSelection {
         DESTINATION_LOST,
@@ -56,7 +60,7 @@ public final class DownloadNotifications {
     }
 
     static int newNotificationId() {
-        return NEXT_NOTIFICATION_ID.getAndIncrement();
+        return NEXT_NOTIFICATION_ID.getAndUpdate(id -> id == Integer.MAX_VALUE ? FIRST_TERMINAL_ID : id + 1);
     }
 
     static int progressOf(long total, long contentLength) {
