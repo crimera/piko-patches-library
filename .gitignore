@@ -6,3 +6,5 @@ build/
 .idea/
 local.properties
 .DS_Store
+node_modules/
+release-assets/

@@ -2,10 +2,11 @@ name: Build
 
 on:
   workflow_dispatch:
-  push:
+  # Pushes to main and dev are built, verified and tested by the Release workflow.
+  pull_request:
     branches:
       - main
-  pull_request:
+      - dev
 
 jobs:
   build:
