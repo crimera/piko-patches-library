@@ -171,6 +171,8 @@ public final class DownloadEvents {
                 listener.onQueued((DownloadEvent.Queued) event);
             } else if (event instanceof DownloadEvent.Started) {
                 listener.onStarted((DownloadEvent.Started) event);
+            } else if (event instanceof DownloadEvent.Waiting) {
+                listener.onWaiting((DownloadEvent.Waiting) event);
             } else if (event instanceof DownloadEvent.Progress) {
                 listener.onProgress((DownloadEvent.Progress) event);
             } else if (event instanceof DownloadEvent.Completed) {

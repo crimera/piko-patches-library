@@ -13,6 +13,8 @@ public interface DownloadListener {
 
     default void onStarted(DownloadEvent.Started event) {}
 
+    default void onWaiting(DownloadEvent.Waiting event) {}
+
     default void onProgress(DownloadEvent.Progress event) {}
 
     default void onCompleted(DownloadEvent.Completed event) {}

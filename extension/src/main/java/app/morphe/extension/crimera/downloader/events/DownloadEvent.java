@@ -48,6 +48,13 @@ public abstract class DownloadEvent {
         }
     }
 
+    /** No usable network yet; the download waits for one instead of failing. */
+    public static final class Waiting extends DownloadEvent {
+        public Waiting(int id, @Nullable String label) {
+            super(id, label);
+        }
+    }
+
     public static final class Progress extends DownloadEvent {
         private final long bytesDone;
         private final long totalBytes;
@@ -70,11 +77,13 @@ public abstract class DownloadEvent {
     public static final class Completed extends DownloadEvent {
         @Nullable private final Uri uri;
         private final String fileName;
+        private final String mimeType;
 
-        public Completed(int id, @Nullable String label, @Nullable Uri uri, String fileName) {
+        public Completed(int id, @Nullable String label, @Nullable Uri uri, String fileName, String mimeType) {
             super(id, label);
             this.uri = uri;
             this.fileName = Objects.requireNonNull(fileName, "fileName");
+            this.mimeType = Objects.requireNonNull(mimeType, "mimeType");
         }
 
         @Nullable
@@ -84,6 +93,10 @@ public abstract class DownloadEvent {
 
         public String fileName() {
             return fileName;
+        }
+
+        public String mimeType() {
+            return mimeType;
         }
 
         @Override

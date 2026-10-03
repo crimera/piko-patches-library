@@ -36,7 +36,7 @@ public final class DownloadEventsTest {
         dispatcher.post(new DownloadEvent.Queued(1, "user1"));
         dispatcher.post(new DownloadEvent.Started(1, "user1"));
         dispatcher.post(new DownloadEvent.Progress(1, "user1", 50, 100));
-        dispatcher.post(new DownloadEvent.Completed(1, "user1", null, "video.mp4"));
+        dispatcher.post(new DownloadEvent.Completed(1, "user1", null, "video.mp4", "video/mp4"));
 
         executor.runAll();
 
@@ -272,7 +272,7 @@ public final class DownloadEventsTest {
         dispatcher.post(new DownloadEvent.Started(1, null));
         dispatcher.post(new DownloadEvent.Progress(1, null, 50, 100));
         dispatcher.post(new DownloadEvent.Progress(1, null, 90, 100));
-        dispatcher.post(new DownloadEvent.Completed(1, null, null, "out.mp4"));
+        dispatcher.post(new DownloadEvent.Completed(1, null, null, "out.mp4", "video/mp4"));
 
         executor.runAll();
 
@@ -301,7 +301,7 @@ public final class DownloadEventsTest {
             public void onProgress(DownloadEvent.Progress event) { received.add(event); }
         }, Runnable::run);
 
-        dispatcher.post(new DownloadEvent.Completed(1, null, null, "done.mp4"));
+        dispatcher.post(new DownloadEvent.Completed(1, null, null, "done.mp4", "video/mp4"));
         dispatcher.post(new DownloadEvent.Failed(1, null, FailureReason.NO_CONNECTION, false));
         dispatcher.post(new DownloadEvent.Cancelled(1, null));
         dispatcher.post(new DownloadEvent.Progress(1, null, 100, 100));
@@ -326,7 +326,7 @@ public final class DownloadEventsTest {
 
         dispatcher.post(new DownloadEvent.Failed(1, null, FailureReason.DESTINATION_LOST, true));
         dispatcher.post(new DownloadEvent.Progress(1, null, 100, 100));
-        dispatcher.post(new DownloadEvent.Completed(1, null, null, "late.mp4"));
+        dispatcher.post(new DownloadEvent.Completed(1, null, null, "late.mp4", "video/mp4"));
 
         assertEquals(1, received.size());
         assertTrue(received.get(0) instanceof DownloadEvent.Failed);
@@ -348,7 +348,7 @@ public final class DownloadEventsTest {
 
         dispatcher.post(new DownloadEvent.Cancelled(1, null));
         dispatcher.post(new DownloadEvent.Progress(1, null, 100, 100));
-        dispatcher.post(new DownloadEvent.Completed(1, null, null, "late.mp4"));
+        dispatcher.post(new DownloadEvent.Completed(1, null, null, "late.mp4", "video/mp4"));
 
         assertEquals(1, received.size());
         assertTrue(received.get(0) instanceof DownloadEvent.Cancelled);
@@ -366,7 +366,7 @@ public final class DownloadEventsTest {
             public void onFailed(DownloadEvent.Failed event) { received.add(event); }
         }, Runnable::run);
 
-        dispatcher.post(new DownloadEvent.Completed(1, null, null, "first.mp4"));
+        dispatcher.post(new DownloadEvent.Completed(1, null, null, "first.mp4", "video/mp4"));
         dispatcher.post(new DownloadEvent.Failed(1, null, FailureReason.UNKNOWN, false));
 
         assertEquals(1, received.size());
@@ -403,7 +403,7 @@ public final class DownloadEventsTest {
         // Cycle 2 reuses the same id, Queued clears terminal mark
         dispatcher.post(new DownloadEvent.Queued(1, "user"));
         dispatcher.post(new DownloadEvent.Started(1, "user"));
-        dispatcher.post(new DownloadEvent.Completed(1, "user", null, "final.mp4"));
+        dispatcher.post(new DownloadEvent.Completed(1, "user", null, "final.mp4", "video/mp4"));
 
         executor.runAll();
 
@@ -446,7 +446,7 @@ public final class DownloadEventsTest {
         Thread t2 = new Thread(() -> {
             dispatcher.post(new DownloadEvent.Queued(42, "user"));
             dispatcher.post(new DownloadEvent.Started(42, "user"));
-            dispatcher.post(new DownloadEvent.Completed(42, "user", null, "done.mp4"));
+            dispatcher.post(new DownloadEvent.Completed(42, "user", null, "done.mp4", "video/mp4"));
         });
         t2.start();
         t2.join();
@@ -494,7 +494,7 @@ public final class DownloadEventsTest {
         dispatcher.register(healthyListener, executor);
 
         dispatcher.post(new DownloadEvent.Started(1, null));
-        dispatcher.post(new DownloadEvent.Completed(1, null, null, "out.mp4"));
+        dispatcher.post(new DownloadEvent.Completed(1, null, null, "out.mp4", "video/mp4"));
 
         executor.runAll();
 
@@ -626,7 +626,7 @@ public final class DownloadEventsTest {
         dispatcher.register(listener1, Runnable::run);
 
         dispatcher.post(new DownloadEvent.Started(1, null));
-        dispatcher.post(new DownloadEvent.Completed(1, null, null, "done.mp4"));
+        dispatcher.post(new DownloadEvent.Completed(1, null, null, "done.mp4", "video/mp4"));
 
         assertEquals(1, l2Received.size());
         assertTrue(l2Received.get(0) instanceof DownloadEvent.Completed);
@@ -677,5 +677,25 @@ public final class DownloadEventsTest {
 
         assertEquals(1, received.size());
         assertEquals(0, received.get(0).id());
+    }
+
+    @Test
+    public void waitingIsDeliveredInOrderBetweenOtherEvents() {
+        DownloadEvents dispatcher = new DownloadEvents(t -> {});
+        List<String> received = new ArrayList<>();
+        dispatcher.register(new DownloadListener() {
+            @Override
+            public void onStarted(DownloadEvent.Started event) { received.add("started"); }
+            @Override
+            public void onWaiting(DownloadEvent.Waiting event) { received.add("waiting"); }
+            @Override
+            public void onProgress(DownloadEvent.Progress event) { received.add("progress"); }
+        }, Runnable::run);
+
+        dispatcher.post(new DownloadEvent.Started(1, null));
+        dispatcher.post(new DownloadEvent.Waiting(1, null));
+        dispatcher.post(new DownloadEvent.Progress(1, null, 1, 2));
+
+        assertEquals(List.of("started", "waiting", "progress"), received);
     }
 }
