@@ -15,8 +15,11 @@ import kotlin.test.assertTrue
 class SharedInfrastructureBoundaryTest {
     @Test
     fun `shared infrastructure does not import app-specific packages`() {
-        val root = Paths.get("src/main/kotlin/app/crimera/patches/common")
-        assertTrue(Files.isDirectory(root), "shared package is missing: $root")
+        val roots = listOf(
+            Paths.get("src/main/kotlin/app/crimera/patches/common"),
+            Paths.get("patches-settings/src/main/kotlin/app/crimera/patches/settings"),
+        )
+        roots.forEach { assertTrue(Files.isDirectory(it), "shared package is missing: $it") }
 
         val forbidden = listOf(
             "app.crimera.patches.newx",
@@ -24,24 +27,58 @@ class SharedInfrastructureBoundaryTest {
             "app.crimera.patches.twitter",
         )
         val violations = mutableListOf<String>()
-        Files.walk(root).use { paths ->
-            paths
-                .filter { it.isRegularFile() && it.toString().endsWith(".kt") }
-                .forEach { path ->
-                    path.readText().lineSequence().forEachIndexed { index, line ->
-                        val trimmed = line.trim()
-                        if (trimmed.startsWith("import ").not()) return@forEachIndexed
-                        val imported = trimmed.removePrefix("import ")
-                        if (forbidden.any(imported::startsWith)) {
-                            violations += "$path:${index + 1}: $trimmed"
+        roots.forEach { root ->
+            Files.walk(root).use { paths ->
+                paths
+                    .filter { it.isRegularFile() && it.toString().endsWith(".kt") }
+                    .forEach { path ->
+                        path.readText().lineSequence().forEachIndexed { index, line ->
+                            val trimmed = line.trim()
+                            if (trimmed.startsWith("import ").not()) return@forEachIndexed
+                            val imported = trimmed.removePrefix("import ")
+                            if (forbidden.any(imported::startsWith)) {
+                                violations += "$path:${index + 1}: $trimmed"
+                            }
                         }
                     }
-                }
+            }
         }
 
         assertTrue(
             violations.isEmpty(),
             "shared infrastructure imports app-specific code:\n" + violations.joinToString("\n"),
+        )
+    }
+
+    @Test
+    fun `shared extension code does not reference app-specific packages`() {
+        val roots = listOf(
+            Paths.get("extension/src/main/java"),
+            Paths.get("extension-settings/src/main/java"),
+        )
+        roots.forEach { assertTrue(Files.isDirectory(it), "shared extension source is missing: $it") }
+
+        val forbidden = listOf(
+            "app.morphe.extension.newx",
+            "app.morphe.extension.instagram",
+            "app.morphe.extension.twitter",
+        )
+        val violations = mutableListOf<String>()
+        roots.forEach { root ->
+            Files.walk(root).use { paths ->
+                paths
+                    .filter { it.isRegularFile() && it.toString().endsWith(".java") }
+                    .forEach { path ->
+                        path.readText().lineSequence().forEachIndexed { index, line ->
+                            if (forbidden.any(line::contains)) violations += "$path:${index + 1}: ${line.trim()}"
+                        }
+                    }
+            }
+        }
+
+        assertTrue(
+            violations.isEmpty(),
+            "shared extension code references app-specific code:\n" + violations.joinToString("\n"),
         )
     }
 }

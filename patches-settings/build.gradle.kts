@@ -2,17 +2,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     `java-library`
-    kotlin("jvm") version "2.2.21"
+    kotlin("jvm")
     `maven-publish`
-    // Declared here so the :extension module shares this build's plugin classpath (one Kotlin
-    // Gradle plugin version) instead of resolving AGP's bundled Kotlin separately. Matches the AGP
-    // the Morphe patches Gradle plugin applies to consumer extension modules.
-    id("com.android.library") version "9.1.0" apply false
 }
 
 group = "app.crimera"
-version = providers.gradleProperty("libraryVersion").getOrElse("0.0.0-dev")
-description = "Shared patch-side infrastructure and resolver safeguards for piko Morphe patch bundles"
+version = rootProject.version
+description = "Patch-side DSL and bytecode injection for contributing settings to the shared piko settings registry"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -24,22 +20,23 @@ java {
 kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.JVM_11
-        // The resolver helpers use experimental context parameters (`context(_: BytecodePatchContext)`).
+        // The injection helpers use experimental context parameters (`context(_: BytecodePatchContext)`).
         freeCompilerArgs.add("-Xcontext-parameters")
     }
 }
 
 dependencies {
-    // The patcher API every helper emits into.
+    // The patcher API every helper emits into. Consumers pin their own (newer) patcher; this is
+    // the oldest version the code is compiled against.
     api("app.morphe:morphe-patcher:1.6.0")
 
-    // Patch-side utilities (bundled resources, resource mapping, settings helpers).
+    // `cloneMutable` and friends.
     api("app.morphe:morphe-patches-library:1.5.0")
 
-    // The dexlib2 fork the patcher and this library are built against.
+    // The dexlib2 fork the patcher is built against.
     api("com.github.MorpheApp.smali:smali-dexlib2:d92701d947")
 
-    // Typed bytecode emission used by the semantic bridge emitters.
+    // Typed bytecode emission.
     api("crimera:morphe-bytecode:0.1.3")
 
     testImplementation(kotlin("test"))
@@ -50,13 +47,12 @@ tasks.test {
     testLogging { events("failed") }
 }
 
-// The licence and attribution travel with the artifact, not just the repository.
 tasks.jar {
-    metaInf { from("LICENSE", "NOTICE") }
+    metaInf { from(rootProject.file("LICENSE"), rootProject.file("NOTICE")) }
 }
 
 tasks.named<Jar>("sourcesJar") {
-    metaInf { from("LICENSE", "NOTICE") }
+    metaInf { from(rootProject.file("LICENSE"), rootProject.file("NOTICE")) }
 }
 
 publishing {
@@ -65,12 +61,12 @@ publishing {
             from(components["java"])
 
             groupId = "app.crimera"
-            artifactId = "piko-patches-library"
+            artifactId = "piko-patches-settings"
             version = project.version.toString()
 
             pom {
-                name = "Piko Patches Library"
-                description = "Shared patch-side infrastructure and resolver safeguards for piko Morphe patch bundles"
+                name = "Piko Patches Settings"
+                description = project.description
                 url = "https://github.com/crimera/piko-patches-library"
                 licenses {
                     license {
