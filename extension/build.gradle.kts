@@ -10,9 +10,8 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // The lowest floor among the apps consuming the library (Instagram builds start at API 28,
-        // the extension floor is 26). The settings UI only uses framework APIs available on API 26.
-        minSdk = 26
+        // The floor is Instagram's: its builds declare minSdkVersion 28; X's newest production builds declare 29 to 32.
+        minSdk = 28
 
         consumerProguardFiles("consumer-rules.pro")
     }
@@ -23,7 +22,7 @@ android {
     }
 
     lint {
-        // The extension (logging and settings UI) is dexed for API 26+; platform APIs newer than that must be guarded.
+        // The extension (logging and settings UI) is dexed for API 28+; platform APIs newer than that must be guarded.
         checkOnly += setOf("NewApi")
         abortOnError = true
     }
