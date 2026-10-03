@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/crimera/piko-patches-library/compare/v0.4.0...v0.5.0) (2026-10-03)
+
+
+### Features
+
+* **lint:** add the resolver drift rules and the shared resolver helpers ([3dc4023](https://github.com/crimera/piko-patches-library/commit/3dc4023c55e426639a38f1529bb392b0d0964a1b))
+
 # [0.5.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.4.0...v0.5.0-dev.1) (2026-10-03)
 
 
