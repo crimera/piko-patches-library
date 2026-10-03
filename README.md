@@ -6,10 +6,10 @@ Shared patch-side infrastructure and resolver safeguards for [piko](https://gith
 
 | Package | Contents |
 |---|---|
-| `app.crimera.patches.common` | Cardinality helpers (`requireExactlyOne` / `requireAtMostOne`), instruction data-flow tracing, scoped fingerprint matching |
+| `app.crimera.patches.common` | Cardinality helpers (`requireExactlyOne` / `requireAtMostOne`), instruction data-flow tracing, scoped fingerprint matching, `isAssignableTo` (interface-typed descriptors), Compose signature shape helpers, `classDefFlatMap` (parallel read-only class scan), parameter register helpers |
 | `app.crimera.patches.common.semantic` | Model introspection and typed accessor/bridge emitters |
 | `app.crimera.utils` | Patch-source helpers (`changeStringAt`, `methodExtractor`, descriptor utilities) |
-| `app.crimera.tools.lint` | Source-level resolver linter and extension-descriptor gate |
+| `app.crimera.tools.lint` | Source-level resolver linter (selection, rigid-signature, exact-interface-type and single-hop-register rules) and extension-descriptor gate |
 | `app.crimera.patches.settings` | `SettingsPatchConfig`, the declaration DSL (`contributeSettings`, `settingsToggle`, `settingsSingleChoice`, …), setting definitions and read emitters (`injectRead`, `returnVoidIfEnabled`, …), `prepareSettingsRegistryLoad`, `insertSettingsStartupHook`, `SettingsRegistrationState.inject` |
 | `app.morphe.patches.all.misc.resources` | Piko's `AddResourcesPatch` fork with its locale set |
 
