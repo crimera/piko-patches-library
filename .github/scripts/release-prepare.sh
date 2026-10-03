@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Called by semantic-release (@semantic-release/exec prepareCmd) once the next version is known.
-# Stamps the version, then builds, verifies and tests the artifacts that get released.
+# Builds, verifies and tests the artifacts that get released.
 set -euo pipefail
 
 VERSION="${1:?usage: release-prepare.sh <version>}"
 
-sed -i.bak "s/^libraryVersion = .*/libraryVersion = ${VERSION}/" gradle.properties
-rm gradle.properties.bak
-grep -qx "libraryVersion = ${VERSION}" gradle.properties
+# gradle-semantic-release-plugin has already stamped the version into gradle.properties.
+grep -Eq "^version[[:space:]]*=[[:space:]]*${VERSION}[[:space:]]*$" gradle.properties
 
 ./gradlew jar --no-daemon
 JAR="build/libs/piko-patches-library-${VERSION}.jar"

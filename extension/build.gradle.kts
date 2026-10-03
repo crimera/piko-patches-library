@@ -4,7 +4,6 @@ plugins {
 }
 
 group = "app.crimera"
-version = rootProject.version
 
 android {
     namespace = "app.crimera.piko.extension"

@@ -15,11 +15,11 @@
         "changelogFile": "CHANGELOG.md"
       }
     ],
+    "gradle-semantic-release-plugin",
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": ".github/scripts/release-prepare.sh ${nextRelease.version}",
-        "publishCmd": "./gradlew publish --no-daemon"
+        "prepareCmd": ".github/scripts/release-prepare.sh ${nextRelease.version}"
       }
     ],
     [

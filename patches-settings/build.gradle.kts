@@ -7,7 +7,6 @@ plugins {
 }
 
 group = "app.crimera"
-version = rootProject.version
 description = "Patch-side DSL and bytecode injection for contributing settings to the shared piko settings registry"
 
 java {

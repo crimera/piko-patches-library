@@ -11,7 +11,6 @@ plugins {
 }
 
 group = "app.crimera"
-version = providers.gradleProperty("libraryVersion").getOrElse("0.0.0-dev")
 description = "Shared patch-side infrastructure and resolver safeguards for piko Morphe patch bundles"
 
 java {
