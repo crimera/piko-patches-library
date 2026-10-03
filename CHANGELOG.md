@@ -1,3 +1,10 @@
+# [0.3.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.2.0...v0.3.0-dev.1) (2026-10-03)
+
+
+### Features
+
+* ship the settings code inside the two main artifacts ([61f7b2e](https://github.com/crimera/piko-patches-library/commit/61f7b2ee34d8880b87c70551a469834737146bcb))
+
 # [0.2.0](https://github.com/crimera/piko-patches-library/compare/v0.1.1...v0.2.0) (2026-10-03)
 
 
