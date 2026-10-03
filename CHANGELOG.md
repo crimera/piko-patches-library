@@ -1,3 +1,11 @@
+# [0.6.0-dev.2](https://github.com/crimera/piko-patches-library/compare/v0.6.0-dev.1...v0.6.0-dev.2) (2026-10-03)
+
+
+### Features
+
+* **downloader:** add the download engine ([68c454d](https://github.com/crimera/piko-patches-library/commit/68c454d8d56a9d96bcbbb23430124ed76c1cf98b))
+* **downloader:** add the engine contracts, the shared failure helpers and the Waiting event ([35571a1](https://github.com/crimera/piko-patches-library/commit/35571a11264cb360aa612c3237f44929468b8b8c))
+
 # [0.6.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.5.0...v0.6.0-dev.1) (2026-10-03)
 
 
