@@ -21,23 +21,17 @@ unzip -p "$AAR" classes.jar > "$RUNNER_TEMP/extension-classes.jar"
 unzip -l "$RUNNER_TEMP/extension-classes.jar" | grep 'app/morphe/extension/crimera/logging/PikoLogger.class' >/dev/null
 echo "$AAR: extension classes verified"
 
-./gradlew :extension-settings:assembleRelease --no-daemon
-SETTINGS_AAR=extension-settings/build/outputs/aar/extension-settings-release.aar
-unzip -p "$SETTINGS_AAR" classes.jar > "$RUNNER_TEMP/extension-settings-classes.jar"
-unzip -l "$RUNNER_TEMP/extension-settings-classes.jar" | grep 'app/morphe/extension/crimera/settings/SettingsRegistry.class' >/dev/null
-unzip -l "$RUNNER_TEMP/extension-settings-classes.jar" | grep 'app/morphe/extension/crimera/theme/PikoTheme.class' >/dev/null
-echo "$SETTINGS_AAR: settings classes verified"
+unzip -l "$RUNNER_TEMP/extension-classes.jar" | grep 'app/morphe/extension/crimera/settings/SettingsRegistry.class' >/dev/null
+unzip -l "$RUNNER_TEMP/extension-classes.jar" | grep 'app/morphe/extension/crimera/theme/PikoTheme.class' >/dev/null
+echo "$AAR: settings classes verified"
 
-./gradlew :patches-settings:jar --no-daemon
-SETTINGS_JAR="patches-settings/build/libs/patches-settings-${VERSION}.jar"
-unzip -l "$SETTINGS_JAR" | grep 'app/crimera/patches/settings/SettingsContributionKt.class' >/dev/null
-echo "$SETTINGS_JAR: patch-side settings classes verified"
+unzip -l "$JAR" | grep 'app/crimera/patches/settings/SettingsContributionKt.class' >/dev/null
+echo "$JAR: patch-side settings classes verified"
 
 ./gradlew test --no-daemon
 
 # The files attached to the GitHub release; the AARs get versioned names.
 rm -rf release-assets
 mkdir release-assets
-cp "$JAR" "$SETTINGS_JAR" release-assets/
+cp "$JAR" release-assets/
 cp "$AAR" "release-assets/piko-extension-library-${VERSION}.aar"
-cp "$SETTINGS_AAR" "release-assets/piko-extension-settings-${VERSION}.aar"

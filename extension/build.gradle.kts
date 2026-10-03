@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         // The lowest floor among the apps consuming the library (Instagram builds start at API 28,
-        // the extension floor is 26).
+        // the extension floor is 26). The settings UI only uses framework APIs available on API 26.
         minSdk = 26
     }
 
@@ -21,7 +21,7 @@ android {
     }
 
     lint {
-        // The extension is dexed for API 26+; platform APIs newer than that must be guarded.
+        // The extension (logging and settings UI) is dexed for API 26+; platform APIs newer than that must be guarded.
         checkOnly += setOf("NewApi")
         abortOnError = true
     }
@@ -40,6 +40,10 @@ dependencies {
     compileOnly("androidx.annotation:annotation:1.9.1")
 
     testImplementation("junit:junit:4.13.2")
+    // Reflection-based settings tests load every signature type of the registry, so the real Morphe
+    // classes must be present at test runtime. The small stubs in src/test shadow the ones that need Android.
+    testImplementation("app.morphe:morphe-extensions-library:1.5.0")
+    testImplementation("androidx.annotation:annotation:1.9.1")
 }
 
 afterEvaluate {
@@ -54,7 +58,7 @@ afterEvaluate {
 
                 pom {
                     name = "Piko Extension Library"
-                    description = "Shared in-app (dex) code for piko Morphe patch bundles"
+                    description = "Shared in-app (dex) code for piko Morphe patch bundles: logging and the themeable settings system"
                     url = "https://github.com/crimera/piko-patches-library"
                     licenses {
                         license {

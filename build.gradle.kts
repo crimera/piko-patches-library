@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "app.crimera"
-description = "Shared patch-side infrastructure and resolver safeguards for piko Morphe patch bundles"
+description = "Shared patch-side infrastructure, resolver safeguards and the settings DSL for piko Morphe patch bundles"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -69,7 +69,7 @@ publishing {
 
             pom {
                 name = "Piko Patches Library"
-                description = "Shared patch-side infrastructure and resolver safeguards for piko Morphe patch bundles"
+                description = "Shared patch-side infrastructure, resolver safeguards and the settings DSL for piko Morphe patch bundles"
                 url = "https://github.com/crimera/piko-patches-library"
                 licenses {
                     license {
