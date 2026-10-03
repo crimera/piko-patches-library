@@ -1,3 +1,18 @@
+# [0.3.0-dev.2](https://github.com/crimera/piko-patches-library/compare/v0.3.0-dev.1...v0.3.0-dev.2) (2026-10-03)
+
+
+### Features
+
+* **extension-settings:** add a host-overridable bottom-sheet drag handle ([7612e82](https://github.com/crimera/piko-patches-library/commit/7612e82646033aa1974f741e5ef9a4d458b2044d))
+* **extension-settings:** add the shared bottom-sheet UI ([af9edec](https://github.com/crimera/piko-patches-library/commit/af9edecf1eb2473040fb922fd32d3a6d6a9b9837))
+
+# [0.3.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.2.0...v0.3.0-dev.1) (2026-10-03)
+
+
+### Features
+
+* ship the settings code inside the two main artifacts ([61f7b2e](https://github.com/crimera/piko-patches-library/commit/61f7b2ee34d8880b87c70551a469834737146bcb))
+
 # [0.2.0](https://github.com/crimera/piko-patches-library/compare/v0.1.1...v0.2.0) (2026-10-03)
 
 

@@ -10,6 +10,7 @@ Shared patch-side infrastructure and resolver safeguards for [piko](https://gith
 | `app.crimera.patches.common.semantic` | Model introspection and typed accessor/bridge emitters |
 | `app.crimera.utils` | Patch-source helpers (`changeStringAt`, `methodExtractor`, descriptor utilities) |
 | `app.crimera.tools.lint` | Source-level resolver linter and extension-descriptor gate |
+| `app.crimera.patches.settings` | `SettingsPatchConfig`, the declaration DSL (`contributeSettings`, `settingsToggle`, `settingsSingleChoice`, …), setting definitions and read emitters (`injectRead`, `returnVoidIfEnabled`, …), `prepareSettingsRegistryLoad`, `insertSettingsStartupHook`, `SettingsRegistrationState.inject` |
 | `app.morphe.patches.all.misc.resources` | Piko's `AddResourcesPatch` fork with its locale set |
 
 The `piko-extension-library` artifact (the `:extension` module) is the in-app counterpart: Java that is dexed into the patched app.
@@ -18,19 +19,13 @@ The `piko-extension-library` artifact (the `:extension` module) is the in-app co
 |---|---|
 | `app.morphe.extension.crimera.logging` | `PikoLogger` (setting-gated logcat output plus a bounded capture buffer), `LogSanitizer` (credential/URL redaction), `LogExporter` (writes captured entries to Downloads) |
 
-The `piko-extension-settings` artifact (the `:extension-settings` module) is an opt-in settings system that depends on the logging artifact. Apps that only need logging do not take it.
+The same artifact carries an opt-in settings system, themeable and driven by the patch-side settings DSL above. Apps that only need logging simply never touch it.
 
 | Package | Contents |
 |---|---|
 | `app.morphe.extension.crimera.settings` | `SettingsRegistry` (settings catalog and typed reads), `SettingsHost` (per-app configuration), `PikoSettingsActivity`/`PikoSettingsFragment` (screens, search, backup/restore), `SettingsUi` and `CustomScreenFragment` (building blocks for app-owned screens) |
 | `app.morphe.extension.crimera.theme` | `SettingsTheme` (the interface apps implement), `SettingsColorScheme`/`SchemeSettingsTheme` (ready-made palette-based theme), `PikoTheme` (installed theme and shortcuts) |
-| `app.morphe.extension.crimera.ui` | `DialogView`, `ButtonView`, `ChoiceRow`: widgets that draw only with the installed theme |
-
-The `piko-patches-settings` artifact (the `:patches-settings` module) is the patch-side counterpart, kept separate from the root jar so a consumer takes only these classes.
-
-| Package | Contents |
-|---|---|
-| `app.crimera.patches.settings` | `SettingsPatchConfig`, the declaration DSL (`contributeSettings`, `settingsToggle`, `settingsSingleChoice`, …), setting definitions and read emitters (`injectRead`, `returnVoidIfEnabled`, …), `prepareSettingsRegistryLoad`, `insertSettingsStartupHook`, `SettingsRegistrationState.inject` |
+| `app.morphe.extension.crimera.ui` | `DialogView`, `ButtonView`, `ChoiceRow`, `BottomSheetView` + `ListItem`/`IconView`: widgets that draw only with the installed theme |
 
 ## Usage
 
@@ -75,15 +70,13 @@ includeBuild("../piko-patches-library") {
     dependencySubstitution {
         substitute(module("app.crimera:piko-patches-library")).using(project(":"))
         substitute(module("app.crimera:piko-extension-library")).using(project(":extension"))
-        substitute(module("app.crimera:piko-extension-settings")).using(project(":extension-settings"))
-        substitute(module("app.crimera:piko-patches-settings")).using(project(":patches-settings"))
     }
 }
 ```
 
 ## Settings
 
-Add `app.crimera:piko-extension-settings` next to the logging artifact: same version, `api` in the module that is dexed into the app, `compileOnly` in app extension modules. The substitution snippet above covers local development.
+The settings system ships in `app.crimera:piko-extension-library` (in-app code) and `app.crimera:piko-patches-library` (the patch-side DSL), so there is nothing extra to add: use the same dependency declarations as above, at the same version.
 
 Wiring an app takes four things, all from the app's own extension and patches:
 
@@ -105,7 +98,7 @@ Wiring an app takes four things, all from the app's own extension and patches:
 
 ### Contributing settings from patches
 
-Declare an app's settings from its patches with `piko-patches-settings`. The app defines one `SettingsPatchConfig` (its base settings patch, the allowed shape of IDs and string names, and an error label) and exposes thin wrappers so call sites stay short:
+Declare an app's settings from its patches with the `app.crimera.patches.settings` DSL. The app defines one `SettingsPatchConfig` (its base settings patch, the allowed shape of IDs and string names, and an error label) and exposes thin wrappers so call sites stay short:
 
 ```kotlin
 val MY_SETTINGS = SettingsPatchConfig(
@@ -144,6 +137,30 @@ PikoTheme.install(SchemeSettingsTheme.builder()
 ```
 
 When colors depend on runtime state (the app's own theme chooser, dynamic system colors), implement `SettingsTheme` directly; `color` and `isDark` are called on every view build and draw, so resolve cheaply. An incomplete `SettingsColorScheme` fails at `build()`, and installing `null` restores the baseline.
+
+### Bottom sheets
+
+`BottomSheetView` is the shared sheet container: edge-to-edge, swipe-down to dismiss, Compose Material 3 slide motion, a title/subtitle header, an optional scrollable body of `ListItem` rows and one or more `ButtonView` actions. It reads the same installed theme as every other widget:
+
+- Sheet background `SURFACE_CONTAINER`, title `ON_SURFACE`, subtitle `ON_SURFACE_VARIANT`, dividers `OUTLINE`, pressed states `rippleColor`.
+- `ListItem` badges sit on `SURFACE_VARIANT`; the caller passes `ACCENT_CONTAINER` (`PikoTheme.primaryContainer`) for selected rows.
+- The drag handle is `SettingsTheme.dragHandleColor`, a 22% tint of `ON_SURFACE` over `SURFACE_CONTAINER` by default; a host whose design system ships a dedicated handle color (Instagram's creation-tools grey) overrides that method.
+
+```java
+BottomSheetView sheet = new BottomSheetView(activity);
+sheet.setTitle("Download");
+
+ListItem row = new ListItem(activity);
+row.setTitle("Video 1");
+row.setLeadingIcon(IconView.IconType.VIDEO, PikoTheme.primaryAccent(activity),
+        PikoTheme.surfaceVariant(activity));
+
+sheet.setScrollableBodyView(rows);
+sheet.addButton(new ButtonView(activity, ButtonView.ButtonStyle.FILLED, "Download all"));
+sheet.show();
+```
+
+Install the theme before the first sheet is built. piko-ig-lite's `DownloadSheet` and its `InstagramSheetTheme` are a worked example of an app theme that resolves the host's own theme attributes.
 
 ## Linters
 

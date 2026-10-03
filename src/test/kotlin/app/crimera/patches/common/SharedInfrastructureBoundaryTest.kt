@@ -17,7 +17,7 @@ class SharedInfrastructureBoundaryTest {
     fun `shared infrastructure does not import app-specific packages`() {
         val roots = listOf(
             Paths.get("src/main/kotlin/app/crimera/patches/common"),
-            Paths.get("patches-settings/src/main/kotlin/app/crimera/patches/settings"),
+            Paths.get("src/main/kotlin/app/crimera/patches/settings"),
         )
         roots.forEach { assertTrue(Files.isDirectory(it), "shared package is missing: $it") }
 
@@ -54,7 +54,6 @@ class SharedInfrastructureBoundaryTest {
     fun `shared extension code does not reference app-specific packages`() {
         val roots = listOf(
             Paths.get("extension/src/main/java"),
-            Paths.get("extension-settings/src/main/java"),
         )
         roots.forEach { assertTrue(Files.isDirectory(it), "shared extension source is missing: $it") }
 

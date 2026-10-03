@@ -10,10 +10,6 @@ pluginManagement {
 
 // In-app (dex) code shipped to the apps the patches modify. The root project is the patch-side jar.
 include(":extension")
-// Themeable settings registry, renderer and widgets; depends on :extension for logging.
-include(":extension-settings")
-// Patch-side counterpart of :extension-settings: the DSL and bytecode injection apps use to contribute settings.
-include(":patches-settings")
 
 
 dependencyResolutionManagement {
