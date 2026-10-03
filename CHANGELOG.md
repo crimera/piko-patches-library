@@ -1,3 +1,12 @@
+# [0.6.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.5.0...v0.6.0-dev.1) (2026-10-03)
+
+
+### Features
+
+* **downloader:** add lifecycle events for downloads ([9ab11a3](https://github.com/crimera/piko-patches-library/commit/9ab11a32026e4e5b110dd154c00fd8829312c920))
+* **downloader:** add the download request, outcome types and batch messages ([fb544bc](https://github.com/crimera/piko-patches-library/commit/fb544bc30d97541287d528eeff495fd6f2073934))
+* **downloader:** add the downloader manifest patch and raise the extension floor to 28 ([7fa6d27](https://github.com/crimera/piko-patches-library/commit/7fa6d27cb750ed00d904bb9224d8bf62b1dfd7e8))
+
 # [0.5.0](https://github.com/crimera/piko-patches-library/compare/v0.4.0...v0.5.0) (2026-10-03)
 
 
