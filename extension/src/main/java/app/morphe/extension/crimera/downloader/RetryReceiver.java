@@ -45,6 +45,13 @@ public final class RetryReceiver extends BroadcastReceiver {
         String channelId = RequestExtras.getChannelId(intent, "downloads");
         String channelName = RequestExtras.getChannelName(intent, "Downloads");
 
+        // The process was restarted and the app has not installed the downloader: nothing can
+        // retry, so dismiss the notice instead of swapping it for a progress notice nobody ends.
+        if (DownloadControllers.get() == null) {
+            DownloadNotifications.cancelNotification(safeContext, notificationId);
+            return;
+        }
+
         // Swap the failure notice for progress immediately so a second tap cannot queue
         // a duplicate transfer while the retry is dispatched to the engine.
         try {
