@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/crimera/piko-patches-library/compare/v0.3.0...v0.4.0) (2026-10-03)
+
+
+### Features
+
+* take piko-x-lite's Utils and AddResourcesPatch improvements ([9d5c8a7](https://github.com/crimera/piko-patches-library/commit/9d5c8a7ee3b7f1a7d5444f6f441f27df8f16cc8a))
+
 # [0.4.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.3.0...v0.4.0-dev.1) (2026-10-03)
 
 
