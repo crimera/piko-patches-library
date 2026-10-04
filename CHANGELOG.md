@@ -1,3 +1,20 @@
+# [0.6.0](https://github.com/crimera/piko-patches-library/compare/v0.5.0...v0.6.0) (2026-10-04)
+
+
+### Bug Fixes
+
+* **downloader:** keep completed and failed notices off the ids of running downloads ([10e714a](https://github.com/crimera/piko-patches-library/commit/10e714ad39f51b22704b3b18551000df6235457f))
+
+
+### Features
+
+* **downloader:** add lifecycle events for downloads ([9ab11a3](https://github.com/crimera/piko-patches-library/commit/9ab11a32026e4e5b110dd154c00fd8829312c920))
+* **downloader:** add the download engine ([68c454d](https://github.com/crimera/piko-patches-library/commit/68c454d8d56a9d96bcbbb23430124ed76c1cf98b))
+* **downloader:** add the download request, outcome types and batch messages ([fb544bc](https://github.com/crimera/piko-patches-library/commit/fb544bc30d97541287d528eeff495fd6f2073934))
+* **downloader:** add the Downloader facade and stop Retry from stranding a notice ([c4aed61](https://github.com/crimera/piko-patches-library/commit/c4aed61f1f93c1e7add0c940a9f944c1a0a9af64))
+* **downloader:** add the downloader manifest patch and raise the extension floor to 28 ([7fa6d27](https://github.com/crimera/piko-patches-library/commit/7fa6d27cb750ed00d904bb9224d8bf62b1dfd7e8))
+* **downloader:** add the engine contracts, the shared failure helpers and the Waiting event ([35571a1](https://github.com/crimera/piko-patches-library/commit/35571a11264cb360aa612c3237f44929468b8b8c))
+
 # [0.6.0-dev.3](https://github.com/crimera/piko-patches-library/compare/v0.6.0-dev.2...v0.6.0-dev.3) (2026-10-04)
 
 
