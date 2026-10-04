@@ -1,3 +1,15 @@
+# [0.6.0-dev.3](https://github.com/crimera/piko-patches-library/compare/v0.6.0-dev.2...v0.6.0-dev.3) (2026-10-04)
+
+
+### Bug Fixes
+
+* **downloader:** keep completed and failed notices off the ids of running downloads ([10e714a](https://github.com/crimera/piko-patches-library/commit/10e714ad39f51b22704b3b18551000df6235457f))
+
+
+### Features
+
+* **downloader:** add the Downloader facade and stop Retry from stranding a notice ([c4aed61](https://github.com/crimera/piko-patches-library/commit/c4aed61f1f93c1e7add0c940a9f944c1a0a9af64))
+
 # [0.6.0-dev.2](https://github.com/crimera/piko-patches-library/compare/v0.6.0-dev.1...v0.6.0-dev.2) (2026-10-03)
 
 
