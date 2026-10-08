@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/crimera/piko-patches-library/compare/v0.6.0...v0.6.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ui:** stack dialog buttons when their labels do not fit ([d51d4da](https://github.com/crimera/piko-patches-library/commit/d51d4da6051821449b7c73e13fb8e93cb0ba2bfe))
+
 ## [0.6.1-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.6.0...v0.6.1-dev.1) (2026-10-08)
 
 
