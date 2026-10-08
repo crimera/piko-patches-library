@@ -7,7 +7,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 import android.util.TypedValue;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -32,7 +31,7 @@ public class DialogView {
     private final TextView titleView;
     private final TextView subtitleView;
     private final FrameLayout bodyContainer;
-    private final LinearLayout actionContainer;
+    private final ActionRow actionContainer;
     private final View topDivider;
     private final View bottomDivider;
     @Nullable
@@ -103,9 +102,7 @@ public class DialogView {
         mainContainer.addView(bottomDivider);
 
         // 3. Action Container
-        actionContainer = new LinearLayout(context);
-        actionContainer.setOrientation(LinearLayout.HORIZONTAL);
-        actionContainer.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        actionContainer = new ActionRow(context);
         actionContainer.setPadding(
                 PikoTheme.dpToPx(context, 24f),
                 PikoTheme.dpToPx(context, 12f),
@@ -160,14 +157,10 @@ public class DialogView {
     }
 
     public DialogView addButton(ButtonView button) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+        actionContainer.addView(button, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        if (actionContainer.getChildCount() > 0) {
-            params.setMarginStart(PikoTheme.dpToPx(context, 8f));
-        }
-        actionContainer.addView(button, params);
+        ));
         return this;
     }
 
@@ -222,6 +215,91 @@ public class DialogView {
     public void dismiss() {
         if (dialog.isShowing()) {
             dialog.dismiss();
+        }
+    }
+
+    /**
+     * Button row that keeps its buttons on one line while their labels fit, and stacks them
+     * end-aligned when they do not. A fixed horizontal row squeezed the last button to nothing
+     * on phone-width screens.
+     */
+    private static class ActionRow extends ViewGroup {
+        private final int spacingPx;
+        private boolean stacked;
+
+        ActionRow(Context context) {
+            super(context);
+            spacingPx = PikoTheme.dpToPx(context, 8f);
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            int width = MeasureSpec.getSize(widthMeasureSpec);
+            int available = Math.max(0, width - getPaddingLeft() - getPaddingRight());
+
+            int rowHeight = 0;
+            int stackHeight = 0;
+            for (int i = 0; i < getChildCount(); i++) {
+                View child = getChildAt(i);
+                // measureChild subtracts this row's padding itself, so pass the full width.
+                measureChild(child,
+                        MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST),
+                        MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+                rowHeight = Math.max(rowHeight, child.getMeasuredHeight());
+                stackHeight += child.getMeasuredHeight();
+            }
+            stackHeight += spacingPx * Math.max(0, getChildCount() - 1);
+
+            stacked = measuredRowWidth() > available;
+            int contentHeight = stacked ? stackHeight : rowHeight;
+            setMeasuredDimension(width, resolveSize(
+                    contentHeight + getPaddingTop() + getPaddingBottom(),
+                    heightMeasureSpec
+            ));
+        }
+
+        @Override
+        protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+            boolean rtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
+            int contentLeft = getPaddingLeft();
+            int contentRight = getWidth() - getPaddingRight();
+            int contentTop = getPaddingTop();
+            int contentHeight = getHeight() - contentTop - getPaddingBottom();
+
+            if (stacked) {
+                int y = contentTop;
+                for (int i = 0; i < getChildCount(); i++) {
+                    View child = getChildAt(i);
+                    int childWidth = child.getMeasuredWidth();
+                    int childHeight = child.getMeasuredHeight();
+                    int childLeft = rtl ? contentLeft : contentRight - childWidth;
+                    child.layout(childLeft, y, childLeft + childWidth, y + childHeight);
+                    y += childHeight + spacingPx;
+                }
+                return;
+            }
+
+            // The row block sits at the end edge; buttons keep their added order within it.
+            int rowWidth = measuredRowWidth();
+            int x = rtl ? contentLeft + rowWidth : contentRight - rowWidth;
+            int step = rtl ? -1 : 1;
+            for (int i = 0; i < getChildCount(); i++) {
+                View child = getChildAt(i);
+                int childWidth = child.getMeasuredWidth();
+                int childHeight = child.getMeasuredHeight();
+                int childLeft = rtl ? x - childWidth : x;
+                int childTop = contentTop + (contentHeight - childHeight) / 2;
+                child.layout(childLeft, childTop, childLeft + childWidth, childTop + childHeight);
+                x += step * (childWidth + spacingPx);
+            }
+        }
+
+        private int measuredRowWidth() {
+            int total = 0;
+            for (int i = 0; i < getChildCount(); i++) {
+                total += getChildAt(i).getMeasuredWidth();
+            }
+            return total + spacingPx * Math.max(0, getChildCount() - 1);
         }
     }
 
