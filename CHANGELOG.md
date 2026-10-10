@@ -1,3 +1,10 @@
+# [0.7.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.6.1...v0.7.0-dev.1) (2026-10-10)
+
+
+### Features
+
+* **downloader:** preview and delete completed downloads ([37cdc78](https://github.com/crimera/piko-patches-library/commit/37cdc78f6d752ceb2cd75756f2dfa80b15fa2419))
+
 ## [0.6.1](https://github.com/crimera/piko-patches-library/compare/v0.6.0...v0.6.1) (2026-10-08)
 
 
