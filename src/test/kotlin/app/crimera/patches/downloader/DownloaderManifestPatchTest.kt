@@ -38,7 +38,7 @@ class DownloaderManifestPatchTest {
     }
 
     @Test
-    fun `three components are added to empty application with exported false`() {
+    fun `four components are added to empty application with exported false`() {
         val doc = parseManifest(
             """
             <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -51,20 +51,23 @@ class DownloaderManifestPatchTest {
 
         val application = doc.getElementsByTagName("application").item(0) as Element
         val children = application.childElements()
-        assertEquals(3, children.size)
+        assertEquals(4, children.size)
 
         val activity = children.single { it.nodeName == "activity" }
         assertEquals("app.morphe.extension.crimera.downloader.FolderPickerActivity", activity.getAttribute("android:name"))
         assertEquals("false", activity.getAttribute("android:exported"))
 
         val receivers = children.filter { it.nodeName == "receiver" }
-        assertEquals(2, receivers.size)
+        assertEquals(3, receivers.size)
 
         val retryReceiver = receivers.single { it.getAttribute("android:name") == "app.morphe.extension.crimera.downloader.RetryReceiver" }
         assertEquals("false", retryReceiver.getAttribute("android:exported"))
 
         val cancelReceiver = receivers.single { it.getAttribute("android:name") == "app.morphe.extension.crimera.downloader.CancelReceiver" }
         assertEquals("false", cancelReceiver.getAttribute("android:exported"))
+
+        val deleteReceiver = receivers.single { it.getAttribute("android:name") == "app.morphe.extension.crimera.downloader.DeleteReceiver" }
+        assertEquals("false", deleteReceiver.getAttribute("android:exported"))
     }
 
     @Test
@@ -79,10 +82,10 @@ class DownloaderManifestPatchTest {
 
         addDownloaderComponents(doc)
         val application = doc.getElementsByTagName("application").item(0) as Element
-        assertEquals(3, application.childElements().size)
+        assertEquals(4, application.childElements().size)
 
         addDownloaderComponents(doc)
-        assertEquals(3, application.childElements().size)
+        assertEquals(4, application.childElements().size)
     }
 
     @Test
@@ -101,14 +104,14 @@ class DownloaderManifestPatchTest {
 
         val application = doc.getElementsByTagName("application").item(0) as Element
         val children = application.childElements()
-        assertEquals(3, children.size)
+        assertEquals(4, children.size)
 
         val activities = children.filter { it.nodeName == "activity" }
         assertEquals(1, activities.size)
         assertEquals("app.morphe.extension.crimera.downloader.FolderPickerActivity", activities.single().getAttribute("android:name"))
 
         val receivers = children.filter { it.nodeName == "receiver" }
-        assertEquals(2, receivers.size)
+        assertEquals(3, receivers.size)
     }
 
     @Test
@@ -133,7 +136,7 @@ class DownloaderManifestPatchTest {
 
         val application = doc.getElementsByTagName("application").item(0) as Element
         val children = application.childElements()
-        assertEquals(3, children.size)
+        assertEquals(4, children.size)
 
         val activity = children.single { it.nodeName == "activity" }
         assertEquals("app.morphe.extension.crimera.downloader.FolderPickerActivity", activity.getAttribute("android:name"))
@@ -167,7 +170,7 @@ class DownloaderManifestPatchTest {
 
         val application = doc.getElementsByTagName("application").item(0) as Element
         val children = application.childElements()
-        assertEquals(3, children.size)
+        assertEquals(4, children.size)
 
         val matching = children.filter {
             it.getAttribute("android:name") == "app.morphe.extension.crimera.downloader.FolderPickerActivity"
@@ -176,7 +179,7 @@ class DownloaderManifestPatchTest {
         assertEquals("service", matching.single().nodeName)
 
         val receivers = children.filter { it.nodeName == "receiver" }
-        assertEquals(2, receivers.size)
+        assertEquals(3, receivers.size)
     }
 
     @Test
@@ -196,7 +199,7 @@ class DownloaderManifestPatchTest {
     }
 
     @Test
-    fun `adds nothing else beyond the three components and their two attributes`() {
+    fun `adds nothing else beyond the four components and their two attributes`() {
         val doc = parseManifest(
             """
             <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -214,7 +217,7 @@ class DownloaderManifestPatchTest {
 
         val application = doc.getElementsByTagName("application").item(0) as Element
         val children = application.childElements()
-        assertEquals(3, children.size)
+        assertEquals(4, children.size)
 
         for (child in children) {
             val attrs = child.attributes

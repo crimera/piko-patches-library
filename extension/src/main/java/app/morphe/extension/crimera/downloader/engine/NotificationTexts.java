@@ -15,6 +15,10 @@ public interface NotificationTexts {
 
     String shareAction();
 
+    default String deleteAction() {
+        return "Delete";
+    }
+
     String retryAction();
 
     String downloadCompleted();

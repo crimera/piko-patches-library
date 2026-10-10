@@ -11,14 +11,18 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Size;
 
 import androidx.annotation.Nullable;
 
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import app.morphe.extension.crimera.downloader.CancelReceiver;
+import app.morphe.extension.crimera.downloader.DeleteReceiver;
 import app.morphe.extension.crimera.downloader.DownloadEngine;
 import app.morphe.extension.crimera.downloader.events.FailureReason;
 import app.morphe.extension.crimera.downloader.model.DownloadRequest;
@@ -31,6 +35,9 @@ public final class DownloadNotifications {
     static final int FIRST_TERMINAL_ID = DownloadEngine.MAX_FRESH_ID + 1;
 
     private static final AtomicInteger NEXT_NOTIFICATION_ID = new AtomicInteger(FIRST_TERMINAL_ID);
+
+    /** Upper bound for the completed notice's preview; the provider keeps the aspect ratio within it. */
+    private static final Size PREVIEW_SIZE = new Size(512, 512);
 
     enum FailureTextSelection {
         DESTINATION_LOST,
@@ -231,13 +238,35 @@ public final class DownloadNotifications {
                     .setContentText(texts.downloadCompleted())
                     .setOngoing(false)
                     .setProgress(0, 0, false);
+            Bitmap preview = previewOf(context, uri);
+            if (preview != null) {
+                builder.setLargeIcon(preview)
+                        .setStyle(new Notification.BigPictureStyle().bigPicture(preview));
+            }
             PendingIntent share = shareIntent(context, texts, uri, mimeType, fileName, terminalId);
             if (share != null) {
                 builder.addAction(android.R.drawable.ic_menu_share, texts.shareAction(), share);
             }
+            PendingIntent delete = DeleteReceiver.deletePendingIntent(context, uri, terminalId);
+            if (delete != null) {
+                builder.addAction(android.R.drawable.ic_menu_delete, texts.deleteAction(), delete);
+            }
             manager.notify(terminalId, builder.build());
             cancelNotification(context, id);
         } catch (RuntimeException ignored) {
+        }
+    }
+
+    /** Thumbnail of the saved file for the completed notice, or null when the provider has none. */
+    @Nullable
+    private static Bitmap previewOf(Context context, @Nullable Uri uri) {
+        if (uri == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return null;
+        }
+        try {
+            return context.getContentResolver().loadThumbnail(uri, PREVIEW_SIZE, null);
+        } catch (IOException | RuntimeException exception) {
+            return null;
         }
     }
 

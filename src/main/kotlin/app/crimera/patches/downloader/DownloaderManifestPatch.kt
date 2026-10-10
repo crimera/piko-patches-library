@@ -21,6 +21,7 @@ private val DOWNLOADER_COMPONENTS = listOf(
     ManifestComponent("activity", "app.morphe.extension.crimera.downloader.FolderPickerActivity"),
     ManifestComponent("receiver", "app.morphe.extension.crimera.downloader.RetryReceiver"),
     ManifestComponent("receiver", "app.morphe.extension.crimera.downloader.CancelReceiver"),
+    ManifestComponent("receiver", "app.morphe.extension.crimera.downloader.DeleteReceiver"),
 )
 
 /**
