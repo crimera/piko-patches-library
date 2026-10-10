@@ -23,6 +23,11 @@ public final class EnglishNotificationTexts implements NotificationTexts {
     }
 
     @Override
+    public String deleteAction() {
+        return "Delete";
+    }
+
+    @Override
     public String retryAction() {
         return "Retry";
     }
