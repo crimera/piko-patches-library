@@ -2,7 +2,6 @@ package app.morphe.extension.crimera.settings;
 
 import android.content.Context;
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.text.Editable;
@@ -18,7 +17,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
@@ -32,9 +30,7 @@ final class SettingsSearchField extends LinearLayout {
 
     private final EditText input;
     private final ImageView clearButton;
-    private final TextView noResults;
     private final LinearLayout searchField;
-    private final View trailingSpacer;
     private boolean suppressNotifications;
     private Listener listener;
 
@@ -42,13 +38,11 @@ final class SettingsSearchField extends LinearLayout {
         super(context);
         SettingsHost host = SettingsHost.require();
         setOrientation(VERTICAL);
-        setPadding(dp(16), dp(4), dp(16), dp(4));
-        setBackgroundColor(PikoTheme.surfaceContainer(context));
 
         searchField = new LinearLayout(context);
         searchField.setOrientation(HORIZONTAL);
-        searchField.setGravity(Gravity.CENTER);
-        searchField.setPaddingRelative(dp(14), 0, dp(14), 0);
+        searchField.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+        searchField.setPaddingRelative(dp(16), 0, dp(8), 0);
         searchField.setBackground(createSearchFieldBackground(context));
         searchField.setClickable(true);
         searchField.setFocusable(true);
@@ -63,13 +57,13 @@ final class SettingsSearchField extends LinearLayout {
         } else {
             searchIcon.setVisibility(GONE);
         }
-        LayoutParams searchIconParams = new LayoutParams(dp(26), dp(26));
-        searchIconParams.setMarginEnd(dp(8));
+        LayoutParams searchIconParams = new LayoutParams(dp(24), dp(24));
+        searchIconParams.setMarginEnd(dp(12));
         searchField.addView(searchIcon, searchIconParams);
 
         input = new EditText(context);
         input.setSingleLine(true);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         input.setTextColor(PikoTheme.primaryText(context));
         input.setHintTextColor(PikoTheme.secondaryText(context));
         input.setHint(host.string(SettingsString.SEARCH_HINT));
@@ -96,15 +90,9 @@ final class SettingsSearchField extends LinearLayout {
             return false;
         });
         searchField.addView(input, new LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        trailingSpacer = new View(context);
-        trailingSpacer.setVisibility(GONE);
-        searchField.addView(trailingSpacer, new LayoutParams(
                 0,
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                0f
+                1f
         ));
 
         clearButton = new ImageView(context);
@@ -144,27 +132,9 @@ final class SettingsSearchField extends LinearLayout {
 
         addView(searchField, new LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(40)
+                dp(44)
         ));
 
-        noResults = SettingsUi.titleText(context);
-        noResults.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-        noResults.setTypeface(
-                PikoTheme.typeface(context, Typeface.DEFAULT),
-                Typeface.BOLD
-        );
-        noResults.setTextColor(PikoTheme.primaryText(context));
-        noResults.setPadding(
-                dp(24),
-                dp(20),
-                dp(24),
-                dp(12)
-        );
-        noResults.setVisibility(GONE);
-        addView(noResults, new LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
         updateSearchLayout(false);
     }
 
@@ -184,23 +154,8 @@ final class SettingsSearchField extends LinearLayout {
         updateSearchLayout(input.length() > 0);
     }
 
-    void setNoResults(boolean visible, CharSequence text) {
-        if (visible) noResults.setText(text);
-        noResults.setVisibility(visible ? VISIBLE : GONE);
-    }
-
     private void updateSearchLayout(boolean queryActive) {
-        searchField.setGravity(
-                queryActive
-                        ? Gravity.CENTER_VERTICAL | Gravity.START
-                        : Gravity.CENTER
-        );
-        trailingSpacer.setVisibility(queryActive ? VISIBLE : GONE);
         clearButton.setVisibility(queryActive ? VISIBLE : GONE);
-        LinearLayout.LayoutParams spacerParams =
-                (LinearLayout.LayoutParams) trailingSpacer.getLayoutParams();
-        spacerParams.weight = queryActive ? 1f : 0f;
-        trailingSpacer.setLayoutParams(spacerParams);
     }
 
     private void focusInput() {
@@ -243,8 +198,7 @@ final class SettingsSearchField extends LinearLayout {
     private GradientDrawable createRoundedSearchFieldDrawable(Context context, int color) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(color);
-        drawable.setStroke(dp(1), PikoTheme.dividerColor(context));
-        drawable.setCornerRadius(dp(20));
+                drawable.setCornerRadius(dp(22));
         return drawable;
     }
 

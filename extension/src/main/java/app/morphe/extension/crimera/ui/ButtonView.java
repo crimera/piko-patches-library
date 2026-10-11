@@ -23,6 +23,7 @@ public class ButtonView extends TextView {
     }
 
     private ButtonStyle style = ButtonStyle.TEXT;
+    private boolean pill;
 
     public ButtonView(Context context) {
         super(context);
@@ -38,6 +39,12 @@ public class ButtonView extends TextView {
 
     public void setButtonStyle(ButtonStyle style) {
         this.style = style;
+        updateStyle();
+    }
+
+    /** Fully rounded ends instead of the default 20dp corners. */
+    public void setPill(boolean pill) {
+        this.pill = pill;
         updateStyle();
     }
 
@@ -65,7 +72,8 @@ public class ButtonView extends TextView {
 
     private void updateStyle() {
         Context context = getContext();
-        int cornerRadius = PikoTheme.dpToPx(context, 20f);
+        // A pill radius is larger than half any button height; the drawable clamps it.
+        int cornerRadius = PikoTheme.dpToPx(context, pill ? 100f : 20f);
 
         GradientDrawable shape = new GradientDrawable();
         shape.setCornerRadius(cornerRadius);
