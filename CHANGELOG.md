@@ -1,3 +1,10 @@
+# [0.8.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.7.0...v0.8.0-dev.1) (2026-10-16)
+
+
+### Features
+
+* **ui:** redesign the settings screens after the new X settings ([df36513](https://github.com/crimera/piko-patches-library/commit/df36513745d7a9bf2d41d0c17853b69ea92373c8))
+
 # [0.7.0](https://github.com/crimera/piko-patches-library/compare/v0.6.1...v0.7.0) (2026-10-10)
 
 

@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -70,10 +71,33 @@ public final class SettingsUi {
                 PikoTheme.dpToPx(context, 16f),
                 PikoTheme.dpToPx(context, 12f)
         );
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         input.setMinHeight(PikoTheme.dpToPx(context, 56f));
         input.setInputType(inputType);
         input.setTypeface(PikoTheme.typeface(context, input.getTypeface()));
+        input.setBackground(inputBackground(context));
         return input;
+    }
+
+    private static StateListDrawable inputBackground(Context context) {
+        StateListDrawable background = new StateListDrawable();
+        background.addState(
+                new int[]{android.R.attr.state_focused},
+                inputOutline(context, PikoTheme.primaryAccent(context), 2f)
+        );
+        background.addState(
+                new int[]{},
+                inputOutline(context, PikoTheme.dividerColor(context), 1f)
+        );
+        return background;
+    }
+
+    private static GradientDrawable inputOutline(Context context, int color, float widthDp) {
+        GradientDrawable outline = new GradientDrawable();
+        outline.setColor(PikoTheme.surface(context));
+        outline.setCornerRadius(PikoTheme.dpToPx(context, 8f));
+        outline.setStroke(PikoTheme.dpToPx(context, widthDp), color);
+        return outline;
     }
 
     public static void applyRippleBackground(View view) {
@@ -120,6 +144,14 @@ public final class SettingsUi {
 
     public static ButtonView dialogButton(Context context, CharSequence label) {
         return new ButtonView(context, ButtonView.ButtonStyle.TEXT, label);
+    }
+
+    /** Full-width primary button of a bottom sheet. */
+    public static ButtonView sheetButton(Context context, CharSequence label) {
+        ButtonView button = new ButtonView(context, ButtonView.ButtonStyle.FILLED, label);
+        button.setPill(true);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        return button;
     }
 
     public static View divider(Context context) {
@@ -287,7 +319,7 @@ public final class SettingsUi {
             paint.setColor(track);
             canvas.drawRoundRect(0, 0, getWidth(), getHeight(), radius, radius, paint);
 
-            float thumbRadius = PikoTheme.dpToPx(context, 10f) + PikoTheme.dpToPx(context, 3f) * progress;
+            float thumbRadius = PikoTheme.dpToPx(context, 8f) + PikoTheme.dpToPx(context, 4f) * progress;
             float startX = radius;
             float endX = getWidth() - radius;
             float centerX = startX + (endX - startX) * progress;

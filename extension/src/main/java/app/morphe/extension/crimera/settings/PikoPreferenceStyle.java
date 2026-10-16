@@ -1,7 +1,13 @@
 package app.morphe.extension.crimera.settings;
 
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.preference.Preference;
@@ -23,12 +29,16 @@ final class PikoPreferenceStyle {
     private enum TrailingAccessory {
         NONE,
         SWITCH,
+        CHEVRON,
+        DOTS,
     }
 
     private static final String TAG_LEADING = "piko_pref_leading";
     private static final String TAG_TITLE = "piko_pref_title";
+    private static final String TAG_VALUE = "piko_pref_value";
     private static final String TAG_SUMMARY = "piko_pref_summary";
     private static final String TAG_SWITCH = "piko_pref_switch";
+    private static final String TAG_CHEVRON = "piko_pref_chevron";
     private static final int[] TITLE_TEXT_SIZES = {13, 14, 15, 16, 17, 18};
     private static final int[] SUMMARY_TEXT_SIZES = {12, 13, 14, 15, 16, 17};
 
@@ -63,8 +73,8 @@ final class PikoPreferenceStyle {
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setMinimumHeight(dp(context, 68));
-        row.setPadding(dp(context, 20), dp(context, 10), dp(context, 16), dp(context, 10));
+        row.setMinimumHeight(dp(context, 56));
+        row.setPadding(dp(context, 24), dp(context, 10), dp(context, 24), dp(context, 10));
         applyRippleBackground(row);
         row.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -77,10 +87,10 @@ final class PikoPreferenceStyle {
             leading.setScaleType(ImageView.ScaleType.FIT_CENTER);
             leading.setVisibility(View.GONE);
             LinearLayout.LayoutParams leadingParams = new LinearLayout.LayoutParams(
-                    dp(context, 20),
-                    dp(context, 20)
+                    dp(context, 24),
+                    dp(context, 24)
             );
-            leadingParams.setMarginEnd(dp(context, 32));
+            leadingParams.setMarginEnd(dp(context, 16));
             row.addView(leading, leadingParams);
         }
 
@@ -94,7 +104,7 @@ final class PikoPreferenceStyle {
         );
         textParams.setMarginEnd(dp(context, 14));
         row.addView(textContainer, textParams);
-        addTitle(context, textContainer, 0f);
+        addTitle(context, textContainer, 0f, navigation);
 
         TextView summary = new TextView(context);
         summary.setTag(TAG_SUMMARY);
@@ -111,6 +121,25 @@ final class PikoPreferenceStyle {
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
 
+        if (trailingAccessory == TrailingAccessory.DOTS || trailingAccessory == TrailingAccessory.CHEVRON) {
+            TextView value = new TextView(context);
+            value.setTag(TAG_VALUE);
+            value.setTextSize(
+                    TypedValue.COMPLEX_UNIT_SP,
+                    TITLE_TEXT_SIZES[typographyScale(context)]
+            );
+            value.setTypeface(PikoTheme.typeface(context, SettingsFont.ROW_SUMMARY, Typeface.DEFAULT));
+            value.setTextColor(secondaryTextColor(context));
+            value.setGravity(Gravity.END);
+            value.setMaxWidth(context.getResources().getDisplayMetrics().widthPixels * 11 / 20);
+            value.setVisibility(View.GONE);
+            LinearLayout.LayoutParams valueParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            valueParams.setMarginEnd(dp(context, 8));
+            row.addView(value, valueParams);
+        }
         if (trailingAccessory == TrailingAccessory.SWITCH) {
             SettingsUi.SwitchControl switchView =
                     new SettingsUi.SwitchControl(context);
@@ -119,6 +148,20 @@ final class PikoPreferenceStyle {
                     dp(context, 52),
                     dp(context, 32)
             ));
+        }
+        if (trailingAccessory == TrailingAccessory.DOTS) {
+            ImageView dots = new ImageView(context);
+            dots.setImageDrawable(new DotsDrawable(secondaryTextColor(context)));
+            row.addView(dots, new LinearLayout.LayoutParams(dp(context, 24), dp(context, 24)));
+        }
+        if (trailingAccessory == TrailingAccessory.CHEVRON) {
+            ImageView chevron = new ImageView(context);
+            chevron.setTag(TAG_CHEVRON);
+            chevron.setImageDrawable(new ChevronDrawable(
+                    secondaryTextColor(context),
+                    Math.round(dp(context, 3) / 2f)
+            ));
+            row.addView(chevron, new LinearLayout.LayoutParams(dp(context, 24), dp(context, 24)));
         }
         return row;
     }
@@ -130,7 +173,8 @@ final class PikoPreferenceStyle {
     private static void addTitle(
             Context context,
             LinearLayout parent,
-            float weight
+            float weight,
+            boolean navigation
     ) {
         TextView title = new TextView(context);
         title.setTag(TAG_TITLE);
@@ -141,7 +185,7 @@ final class PikoPreferenceStyle {
         title.setTypeface(PikoTheme.typeface(
                 context,
                 SettingsFont.ROW_TITLE,
-                Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                Typeface.create(navigation ? "sans-serif" : "sans-serif-medium", Typeface.NORMAL)
         ));
         title.setTextColor(primaryTextColor(context));
         title.setSingleLine(false);
@@ -183,6 +227,14 @@ final class PikoPreferenceStyle {
         if (title != null) {
             title.setText(preference.getTitle());
             title.setTextColor(enabled ? primaryTextColor(view.getContext()) : disabled);
+        }
+        TextView value = view.findViewWithTag(TAG_VALUE);
+        if (value != null) {
+            CharSequence text = preference instanceof ValueRow row ? row.valueText() : null;
+            boolean visible = !TextUtils.isEmpty(text);
+            value.setText(visible ? text : "");
+            value.setVisibility(visible ? View.VISIBLE : View.GONE);
+            value.setTextColor(enabled ? secondaryTextColor(view.getContext()) : disabled);
         }
         if (summary != null) {
             CharSequence text = preference.getSummary();
@@ -241,7 +293,7 @@ final class PikoPreferenceStyle {
 
         @Override
         protected View onCreateView(ViewGroup parent) {
-            return createRow(getContext(), TrailingAccessory.NONE, false);
+            return createRow(getContext(), TrailingAccessory.DOTS, false);
         }
 
         @Override
@@ -250,14 +302,31 @@ final class PikoPreferenceStyle {
         }
     }
 
-    static final class SingleChoice extends Preference {
+    /** A row that shows its current value to the left of the trailing accessory. */
+    private interface ValueRow {
+        CharSequence valueText();
+    }
+
+    static final class SingleChoice extends Preference implements ValueRow {
+        private CharSequence valueText;
+
         SingleChoice(Context context) {
             super(context);
         }
 
+        void setValueText(CharSequence valueText) {
+            this.valueText = valueText;
+            notifyChanged();
+        }
+
+        @Override
+        public CharSequence valueText() {
+            return valueText;
+        }
+
         @Override
         protected View onCreateView(ViewGroup parent) {
-            return createRow(getContext(), TrailingAccessory.NONE, false);
+            return createRow(getContext(), TrailingAccessory.DOTS, false);
         }
 
         @Override
@@ -273,7 +342,7 @@ final class PikoPreferenceStyle {
 
         @Override
         protected View onCreateView(ViewGroup parent) {
-            return createRow(getContext(), TrailingAccessory.NONE, false);
+            return createRow(getContext(), TrailingAccessory.DOTS, false);
         }
 
         @Override
@@ -305,7 +374,7 @@ final class PikoPreferenceStyle {
 
         @Override
         protected View onCreateView(ViewGroup parent) {
-            return createRow(getContext(), TrailingAccessory.NONE, true);
+            return createRow(getContext(), TrailingAccessory.CHEVRON, true);
         }
 
         @Override
@@ -314,4 +383,80 @@ final class PikoPreferenceStyle {
         }
     }
 
+    /** Right-pointing chevron drawn as a stroked path, so it needs no app resource. */
+    private static final class ChevronDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        ChevronDrawable(int color, int strokeWidth) {
+            paint.setColor(color);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(strokeWidth);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            Rect bounds = getBounds();
+            float cx = bounds.exactCenterX();
+            float cy = bounds.exactCenterY();
+            float size = Math.min(bounds.width(), bounds.height()) * 0.26f;
+            Path path = new Path();
+            path.moveTo(cx - size / 2f, cy - size);
+            path.lineTo(cx + size / 2f, cy);
+            path.lineTo(cx - size / 2f, cy + size);
+            canvas.drawPath(path, paint);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(ColorFilter colorFilter) {
+            paint.setColorFilter(colorFilter);
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
+    }
+
+    /** Vertical three-dot marker for rows that open a dialog or sheet. */
+    private static final class DotsDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        DotsDrawable(int color) {
+            paint.setColor(color);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            Rect bounds = getBounds();
+            float cx = bounds.exactCenterX();
+            float cy = bounds.exactCenterY();
+            // X's overflow vector: r=2 dots centered 7 units apart in a 24-unit box.
+            float unit = Math.min(bounds.width(), bounds.height()) / 24f;
+            canvas.drawCircle(cx, cy - 7 * unit, 2 * unit, paint);
+            canvas.drawCircle(cx, cy, 2 * unit, paint);
+            canvas.drawCircle(cx, cy + 7 * unit, 2 * unit, paint);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(ColorFilter colorFilter) {
+            paint.setColorFilter(colorFilter);
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
+    }
 }

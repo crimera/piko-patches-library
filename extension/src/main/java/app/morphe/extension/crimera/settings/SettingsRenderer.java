@@ -26,6 +26,7 @@ import app.morphe.extension.crimera.theme.PikoTheme;
 import app.morphe.extension.crimera.ui.ButtonView;
 import app.morphe.extension.crimera.ui.ChoiceRow;
 import app.morphe.extension.crimera.ui.DialogView;
+import app.morphe.extension.crimera.ui.TrayView;
 
 @SuppressWarnings("deprecation")
 public final class SettingsRenderer {
@@ -114,9 +115,7 @@ public final class SettingsRenderer {
     ) {
         String path = result.path;
         if (isRtl) path = path.replace(" \u2192 ", " \u2190 ");
-        if (path.isEmpty()) return result.summary;
-        if (result.summary.isEmpty()) return path;
-        return path + " - " + result.summary;
+        return path;
     }
 
     private static CharSequence highlight(
@@ -284,15 +283,12 @@ public final class SettingsRenderer {
         input.setSelection(input.length());
         form.addView(input, new LinearLayout.LayoutParams(-1, -2));
 
-        DialogView dialog = new DialogView(context)
+        TrayView dialog = new TrayView(context)
                 .setTitle(item.title.toString())
                 .setBodyView(form);
-        dialog.getDialog().setCanceledOnTouchOutside(true);
+        showKeyboardOnOpen(dialog);
 
-        ButtonView cancel = dialogButton(context, SettingsString.CANCEL);
-        cancel.setOnClickListener(ignored -> dialog.dismiss());
-
-        ButtonView save = dialogButton(context, SettingsString.OK);
+        ButtonView save = SettingsUi.sheetButton(context, host().string(SettingsString.OK));
         save.setOnClickListener(ignored -> {
             String value = input.getText().toString();
             if (item.setting.get().equals(value)) {
@@ -305,7 +301,7 @@ public final class SettingsRenderer {
             promptForRestart(activity, item.setting);
         });
 
-        dialog.addButton(cancel).addButton(save).show();
+        dialog.addButton(save).show();
     }
 
     private static LinearLayout dialogForm(Context context) {
@@ -313,7 +309,7 @@ public final class SettingsRenderer {
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(
                 PikoTheme.dpToPx(context, 24f),
-                0,
+                PikoTheme.dpToPx(context, 24f),
                 PikoTheme.dpToPx(context, 24f),
                 0
         );
@@ -370,23 +366,36 @@ public final class SettingsRenderer {
             Context context,
             SettingsNode.SingleChoice item
     ) {
-        Preference preference = new PikoPreferenceStyle.SingleChoice(context);
+        PikoPreferenceStyle.SingleChoice preference = new PikoPreferenceStyle.SingleChoice(context);
         preference.setPersistent(false);
+        preference.setValueText(selectedTitle(item));
         preference.setOnPreferenceClickListener(ignored -> {
-            showSingleChoiceDialog(activity, item);
+            showSingleChoiceDialog(
+                    activity,
+                    item,
+                    () -> preference.setValueText(selectedTitle(item))
+            );
             return true;
         });
         return preference;
     }
 
+    private static CharSequence selectedTitle(SettingsNode.SingleChoice item) {
+        String selected = item.setting.get();
+        for (SettingsNode.ChoiceOption option : item.options) {
+            if (option.id.equals(selected)) return option.title.toString();
+        }
+        return "";
+    }
+
     private static void showSingleChoiceDialog(
             Activity activity,
-            SettingsNode.SingleChoice item
+            SettingsNode.SingleChoice item,
+            Runnable onSelected
     ) {
         Context context = activity;
-        DialogView dialog = new DialogView(context)
+        TrayView dialog = new TrayView(context)
                 .setTitle(item.title.toString());
-        dialog.getDialog().setCanceledOnTouchOutside(true);
 
         LinearLayout options = choiceList(context);
         dialog.setScrollableBodyView(options);
@@ -401,6 +410,7 @@ public final class SettingsRenderer {
                 if (!checked) return;
                 if (!item.setting.get().equals(option.id)) {
                     item.setting.save(option.id);
+                    onSelected.run();
                     dialog.dismiss();
                     promptForRestart(activity, item.setting);
                     return;
@@ -410,9 +420,7 @@ public final class SettingsRenderer {
             options.addView(row, new LinearLayout.LayoutParams(-1, -2));
         }
 
-        ButtonView cancel = dialogButton(context, SettingsString.CANCEL);
-        cancel.setOnClickListener(ignored -> dialog.dismiss());
-        dialog.addButton(cancel).show();
+        dialog.show();
     }
 
     private static Preference multiChoice(
@@ -435,9 +443,8 @@ public final class SettingsRenderer {
     ) {
         Context context = activity;
         Set<String> selectedValues = new LinkedHashSet<>(item.setting.get());
-        DialogView dialog = new DialogView(context)
+        TrayView dialog = new TrayView(context)
                 .setTitle(item.title.toString());
-        dialog.getDialog().setCanceledOnTouchOutside(true);
 
         LinearLayout options = choiceList(context);
         dialog.setScrollableBodyView(options);
@@ -458,9 +465,7 @@ public final class SettingsRenderer {
             options.addView(row, new LinearLayout.LayoutParams(-1, -2));
         }
 
-        ButtonView cancel = dialogButton(context, SettingsString.CANCEL);
-        cancel.setOnClickListener(ignored -> dialog.dismiss());
-        ButtonView save = dialogButton(context, SettingsString.OK);
+        ButtonView save = SettingsUi.sheetButton(context, host().string(SettingsString.OK));
         save.setOnClickListener(ignored -> {
             Set<String> immutableValues = StringSetSetting.immutableCopy(selectedValues);
             if (item.setting.get().equals(immutableValues)) {
@@ -471,7 +476,15 @@ public final class SettingsRenderer {
             dialog.dismiss();
             promptForRestart(activity, item.setting);
         });
-        dialog.addButton(cancel).addButton(save).show();
+        dialog.addButton(save).show();
+    }
+
+    private static void showKeyboardOnOpen(TrayView sheet) {
+        android.view.Window window = sheet.getDialog().getWindow();
+        if (window == null) return;
+        window.setSoftInputMode(
+                android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
+        );
     }
 
     private static LinearLayout choiceList(Context context) {
@@ -537,6 +550,5 @@ public final class SettingsRenderer {
         preference.setKey(node.id);
         preference.setOrder(node.order);
         preference.setTitle(node.title.toString());
-        if (node.summary != null) preference.setSummary(node.summary.toString());
     }
 }

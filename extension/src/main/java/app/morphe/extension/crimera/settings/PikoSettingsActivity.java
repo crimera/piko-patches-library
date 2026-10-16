@@ -41,6 +41,7 @@ public class PikoSettingsActivity extends Activity {
 
     private LinearLayout toolbar;
     private TextView toolbarTitle;
+    private FrameLayout searchHolder;
     private TextView patchVersionFooter;
     private Object backCallback;
     private boolean backCallbackRegistered;
@@ -90,10 +91,7 @@ public class PikoSettingsActivity extends Activity {
 
     private void onBackStackChanged() {
         updateBackCallback();
-        if (getFragmentManager().getBackStackEntryCount() == 0) {
-            setPageTitle(SettingsHost.require().string(SettingsString.SETTINGS_TITLE));
-            return;
-        }
+        if (getFragmentManager().getBackStackEntryCount() == 0) return;
         setPatchVersionFooterVisible(false);
     }
 
@@ -161,7 +159,7 @@ public class PikoSettingsActivity extends Activity {
                 toolbar,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
-                        PikoTheme.dpToPx(this, 56f)
+                        PikoTheme.dpToPx(this, 52f)
                 )
         );
 
@@ -235,23 +233,34 @@ public class PikoSettingsActivity extends Activity {
                         1f
                 )
         );
-        toolbar.setBackgroundColor(PikoTheme.surfaceContainer(this));
-
-        ViewGroup toolbarParent = (ViewGroup) toolbar.getParent();
-        View divider = new View(this);
-        divider.setBackgroundColor(PikoTheme.dividerColor(this));
-        toolbarParent.addView(
-                divider,
-                toolbarParent.indexOfChild(toolbar) + 1,
-                new ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        Math.max(1, PikoTheme.dpToPx(this, 1f))
-                )
+        searchHolder = new FrameLayout(this);
+        searchHolder.setVisibility(View.GONE);
+        LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
         );
+        searchParams.setMarginEnd(PikoTheme.dpToPx(this, 16f));
+        toolbar.addView(searchHolder, searchParams);
+        toolbar.setBackgroundColor(PikoTheme.surfaceContainer(this));
+    }
+
+    /** Shows {@code field} in the toolbar in place of the page title (the settings root). */
+    void showToolbarSearch(View field) {
+        if (searchHolder == null) return;
+        searchHolder.removeAllViews();
+        searchHolder.addView(field, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        searchHolder.setVisibility(View.VISIBLE);
+        toolbarTitle.setVisibility(View.GONE);
     }
 
     public void setPageTitle(CharSequence title) {
         if (toolbarTitle == null) return;
+        searchHolder.setVisibility(View.GONE);
+        toolbarTitle.setVisibility(View.VISIBLE);
         toolbarTitle.setText(title);
         applyCustomFontToToolbar();
     }
@@ -263,7 +272,10 @@ public class PikoSettingsActivity extends Activity {
 
     private void applyCustomFontToToolbar() {
         if (toolbarTitle == null) return;
-        toolbarTitle.setTypeface(PikoTheme.typeface(this, toolbarTitle.getTypeface()));
+        toolbarTitle.setTypeface(
+                PikoTheme.typeface(this, android.graphics.Typeface.DEFAULT),
+                android.graphics.Typeface.BOLD
+        );
     }
 
     private void configureSystemBars() {

@@ -3,13 +3,20 @@ package app.morphe.extension.crimera.settings;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
+import android.util.TypedValue;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ListView;
+import android.widget.TextView;
 
 import java.util.List;
+
+import app.morphe.extension.crimera.theme.PikoTheme;
 
 @SuppressWarnings("deprecation")
 public final class PikoSettingsFragment extends PreferenceFragment {
@@ -17,6 +24,7 @@ public final class PikoSettingsFragment extends PreferenceFragment {
     private SettingsNode.Group group;
     private PreferenceScreen screen;
     private SettingsSearchField searchField;
+    private TextView emptyState;
 
     static PikoSettingsFragment forGroup(SettingsNode.Group group) {
         PikoSettingsFragment fragment = new PikoSettingsFragment();
@@ -62,7 +70,26 @@ public final class PikoSettingsFragment extends PreferenceFragment {
 
         Context context = requireActivity();
         searchField = new SettingsSearchField(context);
-        listView.addHeaderView(searchField, null, false);
+        emptyState = SettingsUi.titleText(context);
+        emptyState.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        emptyState.setTypeface(PikoTheme.typeface(context, Typeface.DEFAULT), Typeface.BOLD);
+        emptyState.setPadding(
+                PikoTheme.dpToPx(context, 24),
+                PikoTheme.dpToPx(context, 20),
+                PikoTheme.dpToPx(context, 24),
+                PikoTheme.dpToPx(context, 12)
+        );
+        emptyState.setVisibility(View.GONE);
+        // A hidden ListView header still takes its padding, so the wrapper is what collapses to nothing.
+        FrameLayout emptyStateHolder = new FrameLayout(context);
+        emptyStateHolder.addView(emptyState, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        listView.addHeaderView(emptyStateHolder, null, false);
+        if (getActivity() instanceof PikoSettingsActivity settingsActivity) {
+            settingsActivity.showToolbarSearch(searchField);
+        }
 
         searchField.setOnQueryChangedListener(query -> {
             SettingsSearchSession.update(query);
@@ -98,12 +125,14 @@ public final class PikoSettingsFragment extends PreferenceFragment {
 
 
     private void setSearchEmptyState(boolean visible, String query) {
-        if (searchField == null) return;
-        CharSequence message = SettingsHost.require().string(
-                SettingsString.SEARCH_NO_RESULTS,
-                query == null ? "" : query.trim()
-        );
-        searchField.setNoResults(visible, message);
+        if (emptyState == null) return;
+        if (visible) {
+            emptyState.setText(SettingsHost.require().string(
+                    SettingsString.SEARCH_NO_RESULTS,
+                    query == null ? "" : query.trim()
+            ));
+        }
+        emptyState.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     private void updatePatchVersionFooterVisibility() {
@@ -119,11 +148,15 @@ public final class PikoSettingsFragment extends PreferenceFragment {
         super.onResume();
         Activity activity = requireActivity();
         if (!(activity instanceof PikoSettingsActivity settingsActivity)) return;
-        settingsActivity.setPageTitle(
-                group == null
-                        ? SettingsHost.require().string(SettingsString.SETTINGS_TITLE)
-                        : group.title.toString()
-        );
+        if (group == null && searchField != null) {
+            settingsActivity.showToolbarSearch(searchField);
+        } else {
+            settingsActivity.setPageTitle(
+                    group == null
+                            ? SettingsHost.require().string(SettingsString.SETTINGS_TITLE)
+                            : group.title.toString()
+            );
+        }
         updatePatchVersionFooterVisibility();
     }
 
@@ -196,7 +229,7 @@ public final class PikoSettingsFragment extends PreferenceFragment {
         int backgroundColor = PikoPreferenceStyle.backgroundColor(root.getContext());
         root.setBackgroundColor(backgroundColor);
         listView.setBackgroundColor(backgroundColor);
-        listView.setPadding(0, verticalPadding, 0, verticalPadding);
+        listView.setPadding(0, 0, 0, verticalPadding);
         listView.setClipToPadding(false);
         listView.setDivider(null);
         listView.setDividerHeight(0);
