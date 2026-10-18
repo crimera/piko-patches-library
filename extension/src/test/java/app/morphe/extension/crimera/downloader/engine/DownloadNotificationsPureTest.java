@@ -56,6 +56,15 @@ public final class DownloadNotificationsPureTest {
     }
 
     @Test
+    public void speedTextUsesReadableUnitsAndHandlesFirstSample() {
+        assertEquals("Calculating speed…", DownloadNotifications.speedText(-1));
+        assertEquals("0 B/s", DownloadNotifications.speedText(0));
+        assertEquals("900 B/s", DownloadNotifications.speedText(900));
+        assertEquals("1 KB/s", DownloadNotifications.speedText(1024));
+        assertEquals("1.5 MB/s", DownloadNotifications.speedText(1_572_864));
+    }
+
+    @Test
     public void failureTextSelectionDestinationLostBeatsNoConnectionBeatsGeneric() {
         DownloadNotifications.FailureResolution lost =
                 DownloadNotifications.resolveFailure(FailureReason.DESTINATION_LOST, true, true);

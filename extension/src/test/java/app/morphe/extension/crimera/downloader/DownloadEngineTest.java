@@ -33,6 +33,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import app.morphe.extension.crimera.downloader.engine.DestinationWriter;
+import app.morphe.extension.crimera.downloader.engine.DeferredScheduler;
 import app.morphe.extension.crimera.downloader.engine.Reservation;
 import app.morphe.extension.crimera.downloader.engine.TransferObserver;
 import app.morphe.extension.crimera.downloader.engine.TransferOutcome;
@@ -51,6 +52,7 @@ public final class DownloadEngineTest {
     private DownloadEvents events;
     private RecordingListener listener;
     private QueuedExecutor queuedExecutor;
+    private ManualDeferredScheduler deferredScheduler;
     private AtomicLong clock;
     private DownloadEngine engine;
 
@@ -62,8 +64,10 @@ public final class DownloadEngineTest {
         listener = new RecordingListener();
         events.register(listener, Runnable::run);
         queuedExecutor = new QueuedExecutor();
+        deferredScheduler = new ManualDeferredScheduler();
         clock = new AtomicLong(1000L);
-        engine = new DownloadEngine(null, destination, transfer, events, queuedExecutor, clock::get);
+        engine = new DownloadEngine(
+                null, destination, transfer, events, queuedExecutor, deferredScheduler, clock::get);
     }
 
     private static DownloadRequest newRequest(String label) {
@@ -381,6 +385,65 @@ public final class DownloadEngineTest {
     }
 
     @Test
+    public void deferredWaitingTransferDoesNotBlockNextDownloadAndResumesWithSameReservation() {
+        transfer.deferFirstRunId = 1;
+        EnqueueResult waiting = engine.enqueue(1, newRequest("waiting"));
+        EnqueueResult queued = engine.enqueue(2, newRequest("next"));
+
+        queuedExecutor.runNext();
+
+        assertEquals(List.of(1), transfer.runCalls);
+        assertEquals(DownloadHandle.State.RUNNING, waiting.handle().state());
+        assertTrue("waiting transfer keeps its reservation", destination.discardCalls.isEmpty());
+        assertEquals(1, deferredScheduler.size());
+        assertEquals("next task remains available to the sole transfer worker", 1, queuedExecutor.size());
+
+        queuedExecutor.runNext();
+
+        assertEquals(List.of(1, 2), transfer.runCalls);
+        assertEquals(DownloadHandle.State.COMPLETED, queued.handle().state());
+        assertEquals(DownloadHandle.State.RUNNING, waiting.handle().state());
+
+        deferredScheduler.runAll();
+        queuedExecutor.runAll();
+
+        assertEquals(List.of(1, 2, 1), transfer.runCalls);
+        assertEquals(DownloadHandle.State.COMPLETED, waiting.handle().state());
+        assertEquals(2, destination.reserveCalls.size());
+        assertTrue("completed downloads keep their reserved documents", destination.discardCalls.isEmpty());
+        assertLifecycle(waiting.handle().id(), "Queued", "Started", "Waiting", "Started", "Completed");
+    }
+
+    @Test
+    public void cancellingParkedTransferCancelsWakeupAndDiscardsItsReservation() {
+        transfer.deferFirstRunId = 1;
+        EnqueueResult waiting = engine.enqueue(1, newRequest("cancel-parked"));
+        queuedExecutor.runNext();
+
+        assertTrue(engine.cancel(1));
+        assertEquals(0, deferredScheduler.pendingCount());
+        queuedExecutor.runAll();
+
+        assertEquals(DownloadHandle.State.CANCELLED, waiting.handle().state());
+        assertEquals(1, destination.discardCalls.size());
+        assertLifecycle(1, "Queued", "Started", "Waiting", "Cancelled");
+    }
+
+    private void assertLifecycle(int id, String... expectedNames) {
+        List<String> actualNames = new ArrayList<>();
+        for (DownloadEvent event : listener.events) {
+            if (event.id() != id) continue;
+            if (event instanceof DownloadEvent.Queued) actualNames.add("Queued");
+            else if (event instanceof DownloadEvent.Started) actualNames.add("Started");
+            else if (event instanceof DownloadEvent.Waiting) actualNames.add("Waiting");
+            else if (event instanceof DownloadEvent.Completed) actualNames.add("Completed");
+            else if (event instanceof DownloadEvent.Cancelled) actualNames.add("Cancelled");
+            else if (event instanceof DownloadEvent.Failed) actualNames.add("Failed");
+        }
+        assertEquals(List.of(expectedNames), actualNames);
+    }
+
+    @Test
     public void progressThrottlingAndThrottleForgettingId() {
         transfer.observerScript = obs -> {
             obs.onProgress(10, 100);
@@ -642,6 +705,8 @@ public final class DownloadEngineTest {
         Consumer<TransferObserver> observerScript = null;
         final List<Integer> runCalls = new ArrayList<>();
         final Set<Integer> cancelledIds = new HashSet<>();
+        int deferFirstRunId = -1;
+        final Set<Integer> deferredIds = new HashSet<>();
 
         @Override
         public TransferOutcome run(Context context, Reservation reservation, DownloadRequest request, int id, TransferObserver observer) {
@@ -655,6 +720,11 @@ public final class DownloadEngineTest {
             if (observerScript != null) {
                 observerScript.accept(observer);
             }
+            if (id == deferFirstRunId && deferredIds.add(id)) {
+                observer.onWaitingForConnection();
+                return TransferOutcome.deferred(60_000, TransferOutcome.WaitReason.NETWORK_VALIDATION);
+            }
+            if (id == deferFirstRunId) observer.onTransferring();
             if (cancelledIds.contains(id)) {
                 return TransferOutcome.cancelled();
             }
@@ -706,6 +776,58 @@ public final class DownloadEngineTest {
 
         public int size() {
             return queue.size();
+        }
+
+        public void runNext() {
+            Runnable next = queue.poll();
+            if (next != null) next.run();
+        }
+    }
+
+    static final class ManualDeferredScheduler implements DeferredScheduler {
+        private final List<ScheduledTask> tasks = new ArrayList<>();
+
+        @Override
+        public Cancellable schedule(Runnable task, long delayMillis) {
+            ScheduledTask scheduled = new ScheduledTask(task, delayMillis);
+            tasks.add(scheduled);
+            return scheduled;
+        }
+
+        int size() {
+            return tasks.size();
+        }
+
+        int pendingCount() {
+            int pending = 0;
+            for (ScheduledTask task : tasks) {
+                if (!task.cancelled) pending++;
+            }
+            return pending;
+        }
+
+        void runAll() {
+            List<ScheduledTask> ready = new ArrayList<>(tasks);
+            tasks.clear();
+            for (ScheduledTask task : ready) {
+                if (!task.cancelled) task.command.run();
+            }
+        }
+
+        private static final class ScheduledTask implements Cancellable {
+            final Runnable command;
+            final long delayMillis;
+            boolean cancelled;
+
+            ScheduledTask(Runnable command, long delayMillis) {
+                this.command = command;
+                this.delayMillis = delayMillis;
+            }
+
+            @Override
+            public void cancel() {
+                cancelled = true;
+            }
         }
     }
 }
