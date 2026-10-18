@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -47,16 +48,23 @@ public final class PersistentDownloadLog implements DownloadLog {
 
     private final Context context;
     private final DownloadLog delegate;
+    private final BooleanSupplier loggingEnabled;
 
     public PersistentDownloadLog(Context context, DownloadLog delegate) {
+        this(context, delegate, () -> true);
+    }
+
+    public PersistentDownloadLog(Context context, DownloadLog delegate, BooleanSupplier loggingEnabled) {
         Objects.requireNonNull(context, "context");
         Context applicationContext = context.getApplicationContext();
         this.context = applicationContext != null ? applicationContext : context;
         this.delegate = delegate != null ? delegate : DownloadLog.NOOP;
+        this.loggingEnabled = Objects.requireNonNull(loggingEnabled, "loggingEnabled");
     }
 
     @Override
     public void info(Supplier<String> message) {
+        if (!isLoggingEnabled()) return;
         String text = resolve(message);
         delegate.info(() -> text);
         enqueue("INFO", text, null);
@@ -64,9 +72,18 @@ public final class PersistentDownloadLog implements DownloadLog {
 
     @Override
     public void error(Supplier<String> message, Throwable cause) {
+        if (!isLoggingEnabled()) return;
         String text = resolve(message);
         delegate.error(() -> text, cause);
         enqueue("ERROR", text, cause);
+    }
+
+    private boolean isLoggingEnabled() {
+        try {
+            return loggingEnabled.getAsBoolean();
+        } catch (RuntimeException ignored) {
+            return false;
+        }
     }
 
     private void enqueue(String level, String message, Throwable cause) {
