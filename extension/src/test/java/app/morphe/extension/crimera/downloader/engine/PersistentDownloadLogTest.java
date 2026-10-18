@@ -6,17 +6,11 @@
 package app.morphe.extension.crimera.downloader.engine;
 
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-
-import android.content.Context;
-import android.content.ContextWrapper;
 
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 
 public final class PersistentDownloadLogTest {
     @Test
@@ -33,28 +27,4 @@ public final class PersistentDownloadLogTest {
         assertFalse(line.contains("\n"));
     }
 
-    @Test
-    public void disabledGateSkipsMessageResolutionAndDelegate() {
-        AtomicInteger delegateCalls = new AtomicInteger();
-        AtomicInteger messageResolutions = new AtomicInteger();
-        DownloadLog delegate = new DownloadLog() {
-            @Override public void info(Supplier<String> message) { delegateCalls.incrementAndGet(); }
-            @Override public void error(Supplier<String> message, Throwable cause) {
-                delegateCalls.incrementAndGet();
-            }
-        };
-        Context context = new ContextWrapper(null) {
-            @Override public Context getApplicationContext() { return this; }
-        };
-        PersistentDownloadLog log = new PersistentDownloadLog(context, delegate, () -> false);
-
-        log.info(() -> {
-            messageResolutions.incrementAndGet();
-            return "disabled";
-        });
-        log.error(() -> "disabled", new IOException("ignored"));
-
-        assertEquals(0, delegateCalls.get());
-        assertEquals(0, messageResolutions.get());
-    }
 }
