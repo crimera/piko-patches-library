@@ -1,3 +1,11 @@
+# [0.9.0](https://github.com/crimera/piko-patches-library/compare/v0.8.0...v0.9.0) (2026-10-18)
+
+
+### Features
+
+* **downloader:** defer retries off transfer worker ([331e739](https://github.com/crimera/piko-patches-library/commit/331e739c436995e781c0dfc5dd11d70a4270a335))
+* **downloader:** honor logging toggle ([d583a9e](https://github.com/crimera/piko-patches-library/commit/d583a9ecceb3c5f6bf57fec6fa39c77c3995edf3))
+
 # [0.9.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.8.0...v0.9.0-dev.1) (2026-10-18)
 
 
