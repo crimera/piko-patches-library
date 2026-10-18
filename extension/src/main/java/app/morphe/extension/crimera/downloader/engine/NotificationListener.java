@@ -6,10 +6,12 @@
 package app.morphe.extension.crimera.downloader.engine;
 
 import android.content.Context;
+import android.os.SystemClock;
 
 import androidx.annotation.Nullable;
 
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 import app.morphe.extension.crimera.downloader.events.DownloadEvent;
 import app.morphe.extension.crimera.downloader.events.DownloadListener;
@@ -24,6 +26,7 @@ public final class NotificationListener implements DownloadListener {
     private final String channelName;
     private final NotificationTexts texts;
     private final RequestLookup requests;
+    private final ConcurrentHashMap<Integer, DownloadRate> rates = new ConcurrentHashMap<>();
 
     public NotificationListener(
             Context applicationContext,
@@ -46,6 +49,7 @@ public final class NotificationListener implements DownloadListener {
         if (event == null || event.id() <= 0) {
             return;
         }
+        rates.remove(event.id());
         String fileName = resolveFileName(event.id(), event.label());
         DownloadNotifications.showIndeterminate(context, channelId, channelName, texts, event.id(), fileName);
     }
@@ -55,6 +59,7 @@ public final class NotificationListener implements DownloadListener {
         if (event == null || event.id() <= 0) {
             return;
         }
+        rates.remove(event.id());
         String fileName = resolveFileName(event.id(), event.label());
         DownloadNotifications.showIndeterminate(context, channelId, channelName, texts, event.id(), fileName);
     }
@@ -64,6 +69,7 @@ public final class NotificationListener implements DownloadListener {
         if (event == null || event.id() <= 0) {
             return;
         }
+        rates.remove(event.id());
         String fileName = resolveFileName(event.id(), event.label());
         DownloadNotifications.showWaiting(context, channelId, channelName, texts, event.id(), fileName);
     }
@@ -73,13 +79,16 @@ public final class NotificationListener implements DownloadListener {
         if (event == null || event.id() <= 0) {
             return;
         }
+        DownloadRate rate = rates.computeIfAbsent(event.id(), ignored -> new DownloadRate());
+        long bytesPerSecond = rate.update(event.bytesDone(), SystemClock.elapsedRealtime());
         String fileName = resolveFileName(event.id(), event.label());
         if (event.totalBytes() <= 0) {
-            DownloadNotifications.showIndeterminate(context, channelId, channelName, texts, event.id(), fileName);
+            DownloadNotifications.updateIndeterminateNotification(
+                    context, channelId, channelName, texts, event.id(), fileName, bytesPerSecond);
         } else {
             int progress = DownloadNotifications.progressOf(event.bytesDone(), event.totalBytes());
             DownloadNotifications.updateNotification(
-                    context, channelId, channelName, texts, event.id(), fileName, progress);
+                    context, channelId, channelName, texts, event.id(), fileName, progress, bytesPerSecond);
         }
     }
 
@@ -88,6 +97,7 @@ public final class NotificationListener implements DownloadListener {
         if (event == null || event.id() <= 0) {
             return;
         }
+        rates.remove(event.id());
         DownloadNotifications.completeNotification(
                 context,
                 channelId,
@@ -105,6 +115,7 @@ public final class NotificationListener implements DownloadListener {
         if (event == null || event.id() <= 0) {
             return;
         }
+        rates.remove(event.id());
         DownloadRequest request = requests.requestFor(event.id());
         String fileName = request != null ? request.fileName() : (event.label() != null ? event.label() : "");
         DownloadNotifications.notifyFailure(
@@ -125,6 +136,7 @@ public final class NotificationListener implements DownloadListener {
         if (event == null || event.id() <= 0) {
             return;
         }
+        rates.remove(event.id());
         DownloadNotifications.cancelNotification(context, event.id());
     }
 

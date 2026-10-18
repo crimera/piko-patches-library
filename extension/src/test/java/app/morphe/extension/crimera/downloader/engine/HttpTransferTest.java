@@ -8,6 +8,9 @@ package app.morphe.extension.crimera.downloader.engine;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.content.Context;
 
 import org.junit.Test;
 
@@ -16,6 +19,15 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
+
+import app.morphe.extension.crimera.downloader.engine.DownloadLog;
+import app.morphe.extension.crimera.downloader.model.ConflictPolicy;
+import app.morphe.extension.crimera.downloader.model.DownloadRequest;
 
 public final class HttpTransferTest {
     @Test
@@ -88,6 +100,38 @@ public final class HttpTransferTest {
     }
 
     @Test
+    public void resumedRangeMustStartAtRequestedOffsetAndReachTheRepresentationEnd() throws Exception {
+        assertEquals(1_000L, HttpTransfer.validateContentRange("bytes 400-999/1000", 400, 600));
+        assertEquals(1_000L, HttpTransfer.validateContentRange("BYTES 0-999/1000", 0, -1));
+    }
+
+    @Test
+    public void incompleteOrMismatchedRangeIsRejectedAndNotRetried() {
+        assertInvalidContentRange("bytes 399-999/1000", 400, 601);
+        assertInvalidContentRange("bytes 400-998/1000", 400, 599);
+        assertInvalidContentRange("bytes 400-999/1000", 400, 599);
+        assertInvalidContentRange("bytes 400-999/*", 400, 600);
+        assertInvalidContentRange("bytes 0-499/1000", 0, 500);
+        assertInvalidContentRange(null, 400, 600);
+
+        try {
+            HttpTransfer.validateContentRange("bytes 400-999/1000", 400, 599);
+            fail("Expected an inconsistent range to be rejected");
+        } catch (HttpTransfer.InvalidContentRangeException expected) {
+            assertFalse(HttpTransfer.isRetryable(expected));
+        }
+    }
+
+    private static void assertInvalidContentRange(String header, long offset, long contentLength) {
+        try {
+            HttpTransfer.validateContentRange(header, offset, contentLength);
+            fail("Expected invalid Content-Range to be rejected: " + header);
+        } catch (HttpTransfer.InvalidContentRangeException expected) {
+            // The response must be discarded rather than appended.
+        }
+    }
+
+    @Test
     public void redirectClassification() {
         assertTrue(HttpTransfer.isRedirect(301));
         assertTrue(HttpTransfer.isRedirect(302));
@@ -113,7 +157,7 @@ public final class HttpTransferTest {
 
     @Test
     public void cancelArrivingBeforeRunEndsCancelledWithoutTouchingTheNetwork() {
-        HttpTransfer transfer = new HttpTransfer();
+        HttpTransfer transfer = new HttpTransfer(DownloadLog.NOOP, context -> false, () -> 0L);
         transfer.cancel(41);
 
         java.util.concurrent.atomic.AtomicInteger observed = new java.util.concurrent.atomic.AtomicInteger();
@@ -134,5 +178,41 @@ public final class HttpTransferTest {
 
         assertEquals(TransferOutcome.Kind.CANCELLED, outcome.kind());
         assertEquals(0, observed.get());
+    }
+
+    @Test
+    public void offlineWaitParksAndLogsItsReasonAndActualDuration() {
+        List<String> messages = new ArrayList<>();
+        DownloadLog log = new DownloadLog() {
+            @Override public void info(Supplier<String> message) { messages.add(message.get()); }
+            @Override public void error(Supplier<String> message, Throwable cause) { }
+        };
+        AtomicLong elapsedRealtime = new AtomicLong(10_000);
+        HttpTransfer transfer = new HttpTransfer(log, context -> false, elapsedRealtime::get);
+        TransferObserver observer = new TransferObserver() {
+            @Override public void onWaitingForConnection() { }
+            @Override public void onTransferring() { }
+            @Override public void onProgress(long bytesDone, long totalBytes) { }
+        };
+        Reservation reservation = new Reservation(null, "a.mp4", "video/mp4");
+        DownloadRequest request = new DownloadRequest(
+                "https://example.com/a.mp4", null, null, Collections.emptyList(),
+                "a.mp4", "video/mp4", ConflictPolicy.RENAME, null);
+
+        TransferOutcome parked = transfer.run(null, reservation, request, 27, observer);
+
+        assertEquals(TransferOutcome.Kind.DEFERRED, parked.kind());
+        assertEquals(1_000, parked.delayMillis());
+        assertEquals(TransferOutcome.WaitReason.NETWORK_VALIDATION, parked.waitReason());
+        assertTrue(messages.contains(
+                "Download #27 wait started reason=validated_network_unavailable"));
+
+        elapsedRealtime.addAndGet(10_500);
+        transfer.cancel(27);
+        TransferOutcome cancelled = transfer.run(null, reservation, request, 27, observer);
+
+        assertEquals(TransferOutcome.Kind.CANCELLED, cancelled.kind());
+        assertTrue(messages.contains("Download #27 wait ended reason=validated_network_unavailable"
+                + " durationMs=10500 result=cancelled"));
     }
 }

@@ -19,6 +19,7 @@ import android.util.Size;
 import androidx.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import app.morphe.extension.crimera.downloader.CancelReceiver;
@@ -76,6 +77,19 @@ public final class DownloadNotifications {
         }
         int percent = (int) (total * 100 / contentLength);
         return Math.min(Math.max(percent, 0), 99);
+    }
+
+    static String speedText(long bytesPerSecond) {
+        if (bytesPerSecond < 0) {
+            return "Calculating speed…";
+        }
+        if (bytesPerSecond >= 1024L * 1024L) {
+            return String.format(Locale.US, "%.1f MB/s", bytesPerSecond / (1024d * 1024d));
+        }
+        if (bytesPerSecond >= 1024L) {
+            return String.format(Locale.US, "%.0f KB/s", bytesPerSecond / 1024d);
+        }
+        return Math.max(0, bytesPerSecond) + " B/s";
     }
 
     static FailureResolution resolveFailure(
@@ -189,7 +203,8 @@ public final class DownloadNotifications {
             NotificationTexts texts,
             int id,
             String fileName,
-            int progress
+            int progress,
+            long bytesPerSecond
     ) {
         try {
             NotificationManager manager = notificationManager(context);
@@ -200,8 +215,43 @@ public final class DownloadNotifications {
             Notification.Builder builder = notificationBuilder(context, channelId, channelName);
             builder.setSmallIcon(android.R.drawable.stat_sys_download)
                     .setContentTitle(fileName)
+                    .setContentText(progress + "% · " + speedText(bytesPerSecond))
                     .setOngoing(true)
                     .setProgress(100, progress, false);
+            PendingIntent cancel = CancelReceiver.cancelPendingIntent(context, id);
+            if (cancel != null) {
+                builder.addAction(
+                        android.R.drawable.ic_menu_close_clear_cancel,
+                        texts.cancelAction(),
+                        cancel
+                );
+            }
+            manager.notify(id, builder.build());
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    static void updateIndeterminateNotification(
+            Context context,
+            String channelId,
+            String channelName,
+            NotificationTexts texts,
+            int id,
+            String fileName,
+            long bytesPerSecond
+    ) {
+        try {
+            NotificationManager manager = notificationManager(context);
+            if (manager == null) {
+                return;
+            }
+
+            Notification.Builder builder = notificationBuilder(context, channelId, channelName);
+            builder.setSmallIcon(android.R.drawable.stat_sys_download)
+                    .setContentTitle(fileName)
+                    .setContentText(speedText(bytesPerSecond))
+                    .setOngoing(true)
+                    .setProgress(100, 0, true);
             PendingIntent cancel = CancelReceiver.cancelPendingIntent(context, id);
             if (cancel != null) {
                 builder.addAction(
