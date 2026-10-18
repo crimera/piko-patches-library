@@ -1,3 +1,10 @@
+## [0.9.1](https://github.com/crimera/piko-patches-library/compare/v0.9.0...v0.9.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **downloader:** leave log gating to consumer ([b20af7c](https://github.com/crimera/piko-patches-library/commit/b20af7cf9e8dbffc2911aa8fc2e6454089f49505))
+
 ## [0.9.1-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.9.0...v0.9.1-dev.1) (2026-10-18)
 
 
