@@ -37,7 +37,7 @@ dependencies {
     api("com.github.MorpheApp.smali:smali-dexlib2:4220ae75f7")
 
     // Typed bytecode emission used by the semantic bridge emitters.
-    api("crimera:morphe-bytecode:0.1.3")
+    api("crimera:morphe-bytecode:0.1.4")
 
     testImplementation(kotlin("test"))
 }
