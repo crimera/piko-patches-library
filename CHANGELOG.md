@@ -1,3 +1,10 @@
+## [0.10.1-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.10.0...v0.10.1-dev.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **settings:** align utility calls with Morphe 2 runtime ([81152d9](https://github.com/crimera/piko-patches-library/commit/81152d97810cad35163fd6ccdb751df9f7180c71))
+
 # [0.10.0](https://github.com/crimera/piko-patches-library/compare/v0.9.1...v0.10.0) (2026-10-23)
 
 
