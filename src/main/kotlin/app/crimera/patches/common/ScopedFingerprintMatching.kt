@@ -1,8 +1,11 @@
 package app.crimera.patches.common
 
 import app.morphe.patcher.Fingerprint
+import app.morphe.patcher.InstructionFilter
 import app.morphe.patcher.Match
 import app.morphe.patcher.patch.BytecodePatchContext
+import app.morphe.patcher.util.proxy.mutableTypes.MutableClass
+import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.iface.ClassDef
 import com.android.tools.smali.dexlib2.iface.Method
 import java.util.WeakHashMap
@@ -18,7 +21,7 @@ private data class IndexedMethod(
 ) {
     fun resolveCurrent(context: BytecodePatchContext): Method? {
         val currentClass = context.classDefByOrNull(originalClass.type) ?: return null
-        if (currentClass === originalClass) return originalMethod
+        if (currentClass === originalClass && currentClass !is MutableClass) return originalMethod
 
         return currentClass.methods.singleOrNull { currentMethod ->
             currentMethod.name == originalMethod.name &&
@@ -28,29 +31,9 @@ private data class IndexedMethod(
     }
 }
 
-private object FingerprintCandidateCache {
-    private val allClassDescriptors = WeakHashMap<BytecodePatchContext, List<String>>()
-    private val scopedClassDescriptors =
-        WeakHashMap<BytecodePatchContext, MutableMap<String, List<String>>>()
+private object ShapeMethodIndex {
     private val methodsByShape =
         WeakHashMap<BytecodePatchContext, Map<MethodShape, List<IndexedMethod>>>()
-
-    fun classDescriptors(
-        context: BytecodePatchContext,
-        scope: String,
-        inScope: (String) -> Boolean,
-    ): List<String> =
-        synchronized(scopedClassDescriptors) {
-            val allDescriptors =
-                allClassDescriptors.getOrPut(context) {
-                    buildList {
-                        context.classDefForEach { classDef -> add(classDef.type) }
-                    }
-                }
-            scopedClassDescriptors
-                .getOrPut(context, ::mutableMapOf)
-                .getOrPut(scope) { allDescriptors.filter(inScope) }
-        }
 
     fun methods(
         context: BytecodePatchContext,
@@ -76,9 +59,31 @@ private fun String.isExactTypeDeclaration(): Boolean =
         startsWith('[') && endsWith(';')
 
 /**
- * Matches every method while pre-scoping exact owners, preserved owner prefixes, and exact method
- * shapes. Unlike Morphe's global all-match path, owner scopes are resolved before method matching.
+ * Fingerprint that records its declared return type and parameter arity for the retained shape
+ * index. Ordinary fingerprints use Patcher's native all-match search.
  */
+open class ShapeFingerprint(
+    returnType: String? = null,
+    parameters: List<String>? = null,
+    name: String? = null,
+    accessFlags: List<AccessFlags>? = null,
+    filters: List<InstructionFilter>? = null,
+    strings: List<String>? = null,
+    custom: ((method: Method, classDef: ClassDef) -> Boolean)? = null,
+) : Fingerprint(
+    name = name,
+    accessFlags = accessFlags,
+    returnType = returnType,
+    parameters = parameters,
+    filters = filters,
+    strings = strings,
+    custom = custom,
+) {
+    val declaredReturnType: String? = returnType?.takeIf(String::isExactTypeDeclaration)
+    val declaredParameterCount: Int? = parameters?.size
+}
+
+/** Native all-match for ordinary fingerprints; explicit declarations retain the measured shape table. */
 context(context: BytecodePatchContext)
 fun Fingerprint.scopedMatchAllOrNull(): List<Match>? {
     val nestedClassFingerprint = classFingerprint
@@ -95,43 +100,17 @@ fun Fingerprint.scopedMatchAllOrNull(): List<Match>? {
         return matches.ifEmpty { null }
     }
 
-    val classScope = definingClass
-    if (classScope == null) {
-        val exactReturnType = returnType?.takeIf(String::isExactTypeDeclaration)
-        val parameterCount = parameters?.size
-        if (exactReturnType == null || parameterCount == null) return matchAllOrNull()
-
-        val candidates =
-            FingerprintCandidateCache.methods(context, MethodShape(exactReturnType, parameterCount))
-        val matches = buildList {
-            candidates.forEach { method ->
-                val classDef = context.classDefByOrNull(method.definingClass) ?: return@forEach
-                val match = matchOrNull(method, classDef) ?: return@forEach
-                add(match)
-                clearMatch()
-            }
-        }
-        return matches.ifEmpty { null }
-    }
-
-    val exactClass = classScope.startsWith('L') && classScope.endsWith(';')
-    if (exactClass) {
-        val classDef = context.classDefByOrNull(classScope) ?: return null
-        return matchAllOrNull(classDef)
-    }
-
-    fun inScope(descriptor: String) = when {
-        classScope.startsWith('L') || classScope.startsWith('[') -> descriptor.startsWith(classScope)
-        classScope.endsWith(';') -> descriptor.endsWith(classScope)
-        else -> descriptor.contains(classScope)
-    }
-
-    val classDescriptors =
-        FingerprintCandidateCache.classDescriptors(context, classScope, ::inScope)
+    val shapeFingerprint = this as? ShapeFingerprint ?: return matchAllOrNull()
+    val returnType = shapeFingerprint.declaredReturnType ?: return matchAllOrNull()
+    val parameterCount = shapeFingerprint.declaredParameterCount ?: return matchAllOrNull()
+    val shape = MethodShape(returnType, parameterCount)
+    val candidates = ShapeMethodIndex.methods(context, shape)
     val matches = buildList {
-        classDescriptors.forEach { descriptor ->
-            val classDef = context.classDefByOrNull(descriptor) ?: return@forEach
-            addAll(matchAllOrNull(classDef).orEmpty())
+        candidates.forEach { method ->
+            val classDef = context.classDefByOrNull(method.definingClass) ?: return@forEach
+            val match = matchOrNull(method, classDef) ?: return@forEach
+            add(match)
+            clearMatch()
         }
     }
     return matches.ifEmpty { null }

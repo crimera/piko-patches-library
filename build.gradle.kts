@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     `java-library`
-    kotlin("jvm") version "2.2.21"
+    kotlin("jvm") version "2.4.21"
     `maven-publish`
     // Declared here so the :extension module shares this build's plugin classpath (one Kotlin
     // Gradle plugin version) instead of resolving AGP's bundled Kotlin separately. Matches the AGP
@@ -23,17 +23,15 @@ java {
 kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.JVM_11
-        // The resolver helpers use experimental context parameters (`context(_: BytecodePatchContext)`).
-        freeCompilerArgs.add("-Xcontext-parameters")
     }
 }
 
 dependencies {
     // The patcher API every helper emits into.
-    api("app.morphe:morphe-patcher:1.6.0")
+    api("app.morphe:morphe-patcher:2.0.0")
 
     // Patch-side utilities (bundled resources, resource mapping, settings helpers).
-    api("app.morphe:morphe-patches-library:1.5.0")
+    api("app.morphe:morphe-patches-library:1.6.0")
 
     // The dexlib2 fork the patcher and this library are built against.
     api("com.github.MorpheApp.smali:smali-dexlib2:d92701d947")

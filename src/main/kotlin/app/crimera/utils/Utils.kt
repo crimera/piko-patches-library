@@ -47,8 +47,8 @@ fun ResourcePatchContext.replaceXmlResources(
             val sourceFile = "${resourceGroup.resourceDirectoryName}/$resource"
             val targetFile = "res/$sourceFile"
 
-            // If target file doesn't exist, use copyResources as fallback
-            if (!get("res").resolve(sourceFile).exists()) {
+            // Resolve the exact file so lazy resource decoding runs before the existence check.
+            if (!get(targetFile).exists()) {
                 copyResources(sourceResourceDirectory, resourceGroup)
                 return@forEach
             }
@@ -85,7 +85,7 @@ fun ResourcePatchContext.replaceStringsInFile(
     resourceGroups.forEach { resourceGroup ->
         resourceGroup.resources.forEach { resource ->
             val sourcePath = "${resourceGroup.resourceDirectoryName}/$resource"
-            val sourceFile = get("res").resolve(sourcePath)
+            val sourceFile = get("res/$sourcePath")
             if (sourceFile.exists()) {
                 var content = sourceFile.readText()
 
