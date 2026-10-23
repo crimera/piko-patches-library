@@ -24,8 +24,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -67,7 +69,69 @@ public final class DownloadEngineTest {
         deferredScheduler = new ManualDeferredScheduler();
         clock = new AtomicLong(1000L);
         engine = new DownloadEngine(
-                null, destination, transfer, events, queuedExecutor, deferredScheduler, clock::get);
+                null, destination, transfer, events, queuedExecutor, deferredScheduler, clock::get,
+                DownloadEngine.STALL_TIMEOUT_MS,
+                DownloadEngine.CANCEL_GRACE_MS,
+                DownloadEngine.WATCHDOG_INTERVAL_MS,
+                Runnable::run);
+    }
+
+    private void useDefaultWatchdogTimeouts() {
+        engine = new DownloadEngine(
+                null, destination, transfer, events, queuedExecutor, deferredScheduler, clock::get,
+                DownloadEngine.STALL_TIMEOUT_MS,
+                DownloadEngine.CANCEL_GRACE_MS,
+                DownloadEngine.WATCHDOG_INTERVAL_MS,
+                Runnable::run);
+    }
+
+    private void blockTransfer(int id) {
+        transfer.blockRunId = id;
+        transfer.runEntered = new CountDownLatch(1);
+        transfer.allowRunReturn = new CountDownLatch(1);
+    }
+
+    private Thread startQueuedTransfer() {
+        Thread worker = new Thread(queuedExecutor::runNext, "download-engine-test-worker");
+        worker.setDaemon(true);
+        worker.start();
+        await(transfer.runEntered);
+        return worker;
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            assertTrue("transfer did not reach its blocking point", latch.await(5, TimeUnit.SECONDS));
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            fail("interrupted while waiting for the test transfer");
+        }
+    }
+
+    private static void join(Thread worker) {
+        try {
+            worker.join(5_000);
+            assertFalse("test transfer did not return", worker.isAlive());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            fail("interrupted while joining the test transfer");
+        }
+    }
+
+    private int terminalCountFor(int id) {
+        int count = 0;
+        for (DownloadEvent event : listener.events) {
+            if (event.id() == id && event.isTerminal()) count++;
+        }
+        return count;
+    }
+
+    private int eventCountFor(int id) {
+        int count = 0;
+        for (DownloadEvent event : listener.events) {
+            if (event.id() == id) count++;
+        }
+        return count;
     }
 
     private static DownloadRequest newRequest(String label) {
@@ -246,6 +310,170 @@ public final class DownloadEngineTest {
     }
 
     @Test
+    public void stalledRunningTransferIsAbandonedAndLateReturnHasNoEffects() {
+        useDefaultWatchdogTimeouts();
+        blockTransfer(1);
+        EnqueueResult stalled = engine.enqueue(1, newRequest("stalled"));
+        Thread worker = startQueuedTransfer();
+        int stalledId = stalled.handle().id();
+
+        try {
+            clock.addAndGet(DownloadEngine.STALL_TIMEOUT_MS + 1);
+            engine.checkWatchdog();
+
+            assertEquals(DownloadHandle.State.FAILED, stalled.handle().state());
+            assertEquals(1, terminalCountFor(stalledId));
+            DownloadEvent.Failed failed = (DownloadEvent.Failed) listener.events.get(listener.events.size() - 1);
+            assertEquals(FailureReason.UNKNOWN, failed.reason());
+            assertTrue(failed.retriable());
+            assertEquals(1, destination.discardCalls.size());
+            assertFalse("abandoned id must no longer be active", engine.cancel(stalledId));
+
+            EnqueueResult next = engine.enqueue(2, newRequest("next-after-stall"));
+            queuedExecutor.runNext();
+            assertEquals(DownloadHandle.State.COMPLETED, next.handle().state());
+        } finally {
+            int eventsBeforeLateReturn = eventCountFor(stalledId);
+            transfer.allowRunReturn.countDown();
+            join(worker);
+            assertEquals("late return must not post any more events", eventsBeforeLateReturn,
+                    eventCountFor(stalledId));
+        }
+
+        assertEquals("late transfer return must not post another terminal event", 1, terminalCountFor(stalledId));
+        assertEquals("late transfer return must not discard again", 1, destination.discardCalls.size());
+    }
+
+    @Test
+    public void stalledTransferPostsFailureBeforeQueuedAbandonCleanup() {
+        QueuedExecutor cleanupExecutor = new QueuedExecutor();
+        engine = new DownloadEngine(
+                null, destination, transfer, events, queuedExecutor, deferredScheduler, clock::get,
+                DownloadEngine.STALL_TIMEOUT_MS,
+                DownloadEngine.CANCEL_GRACE_MS,
+                DownloadEngine.WATCHDOG_INTERVAL_MS,
+                cleanupExecutor);
+        blockTransfer(1);
+        EnqueueResult stalled = engine.enqueue(1, newRequest("stalled-cleanup"));
+        Thread worker = startQueuedTransfer();
+
+        try {
+            clock.addAndGet(DownloadEngine.STALL_TIMEOUT_MS + 1);
+            engine.checkWatchdog();
+
+            assertEquals(DownloadHandle.State.FAILED, stalled.handle().state());
+            assertEquals(1, terminalCountFor(stalled.handle().id()));
+            assertTrue(listener.events.get(listener.events.size() - 1) instanceof DownloadEvent.Failed);
+            assertTrue("abandon cleanup must remain queued", destination.discardCalls.isEmpty());
+            assertEquals(1, cleanupExecutor.size());
+
+            cleanupExecutor.runAll();
+            assertEquals(1, destination.discardCalls.size());
+        } finally {
+            transfer.allowRunReturn.countDown();
+            join(worker);
+        }
+    }
+
+    @Test
+    public void progressResetsTheStallClock() {
+        useDefaultWatchdogTimeouts();
+        blockTransfer(1);
+        EnqueueResult result = engine.enqueue(1, newRequest("progress-resets-stall"));
+        Thread worker = startQueuedTransfer();
+        int id = result.handle().id();
+
+        try {
+            clock.addAndGet(2 * 60_000L);
+            transfer.lastObserver.onProgress(1, 100);
+            clock.addAndGet(2 * 60_000L);
+            engine.checkWatchdog();
+
+            assertEquals("activity at two minutes keeps the transfer alive at four", 0, terminalCountFor(id));
+            assertTrue(destination.discardCalls.isEmpty());
+
+            clock.addAndGet(60_001L);
+            engine.checkWatchdog();
+            assertEquals(DownloadHandle.State.FAILED, result.handle().state());
+            assertEquals(1, terminalCountFor(id));
+            assertEquals(1, destination.discardCalls.size());
+        } finally {
+            int eventsBeforeLateReturn = eventCountFor(id);
+            transfer.allowRunReturn.countDown();
+            join(worker);
+            assertEquals("late return must not post any more events", eventsBeforeLateReturn,
+                    eventCountFor(id));
+        }
+
+        assertEquals("late return after the stall must stay silent", 1, terminalCountFor(id));
+        assertEquals(1, destination.discardCalls.size());
+    }
+
+    @Test
+    public void cancelOfHungTransferWaitsForGraceThenAbandonsAsCancelled() {
+        useDefaultWatchdogTimeouts();
+        blockTransfer(1);
+        EnqueueResult result = engine.enqueue(1, newRequest("cancel-hung"));
+        Thread worker = startQueuedTransfer();
+        int id = result.handle().id();
+
+        try {
+            assertTrue(engine.cancel(id));
+            clock.addAndGet(DownloadEngine.CANCEL_GRACE_MS - 1);
+            engine.checkWatchdog();
+            assertEquals("cancel grace must be honored", 0, terminalCountFor(id));
+            assertTrue(destination.discardCalls.isEmpty());
+
+            clock.incrementAndGet();
+            engine.checkWatchdog();
+            assertEquals(DownloadHandle.State.CANCELLED, result.handle().state());
+            assertEquals(1, terminalCountFor(id));
+            assertTrue(listener.events.get(listener.events.size() - 1) instanceof DownloadEvent.Cancelled);
+            assertEquals(1, destination.discardCalls.size());
+        } finally {
+            int eventsBeforeLateReturn = eventCountFor(id);
+            transfer.allowRunReturn.countDown();
+            join(worker);
+            assertEquals("late return must not post any more events", eventsBeforeLateReturn,
+                    eventCountFor(id));
+        }
+
+        assertEquals("late cancelled transfer return must stay silent", 1, terminalCountFor(id));
+        assertEquals(1, destination.discardCalls.size());
+    }
+
+    @Test
+    public void transferThrowingErrorFailsAndReleasesItsId() {
+        transfer.runError = new OutOfMemoryError("transfer error");
+        EnqueueResult result = engine.enqueue(1, newRequest("error-transfer"));
+        queuedExecutor.runAll();
+
+        assertEquals(DownloadHandle.State.FAILED, result.handle().state());
+        assertEquals(1, destination.discardCalls.size());
+        assertEquals(1, terminalCountFor(1));
+        assertTrue(listener.events.get(listener.events.size() - 1) instanceof DownloadEvent.Failed);
+
+        transfer.runError = null;
+        assertEquals(EnqueueState.QUEUED, engine.enqueue(1, newRequest("reused-after-error")).state());
+        queuedExecutor.runAll();
+    }
+
+    @Test
+    public void parkedTransferIsNotAbandonedByWatchdog() {
+        useDefaultWatchdogTimeouts();
+        transfer.deferFirstRunId = 1;
+        EnqueueResult result = engine.enqueue(1, newRequest("parked-watchdog"));
+        queuedExecutor.runNext();
+
+        clock.addAndGet(DownloadEngine.STALL_TIMEOUT_MS + 1);
+        engine.checkWatchdog();
+
+        assertEquals(DownloadHandle.State.RUNNING, result.handle().state());
+        assertEquals(0, terminalCountFor(1));
+        assertTrue("parked transfer keeps its reservation", destination.discardCalls.isEmpty());
+    }
+
+    @Test
     public void exactlyOneTerminalEventInEveryCase() {
         TransferOutcome[] outcomes = {
                 TransferOutcome.saved(),
@@ -395,7 +623,7 @@ public final class DownloadEngineTest {
         assertEquals(List.of(1), transfer.runCalls);
         assertEquals(DownloadHandle.State.RUNNING, waiting.handle().state());
         assertTrue("waiting transfer keeps its reservation", destination.discardCalls.isEmpty());
-        assertEquals(1, deferredScheduler.size());
+        assertEquals("parked wakeup plus the engine watchdog", 2, deferredScheduler.pendingCount());
         assertEquals("next task remains available to the sole transfer worker", 1, queuedExecutor.size());
 
         queuedExecutor.runNext();
@@ -421,7 +649,8 @@ public final class DownloadEngineTest {
         queuedExecutor.runNext();
 
         assertTrue(engine.cancel(1));
-        assertEquals(0, deferredScheduler.pendingCount());
+        assertEquals("the parked wakeup is cancelled; only the watchdog remains", 1,
+                deferredScheduler.pendingCount());
         queuedExecutor.runAll();
 
         assertEquals(DownloadHandle.State.CANCELLED, waiting.handle().state());
@@ -702,10 +931,15 @@ public final class DownloadEngineTest {
     static final class FakeTransferRunner implements TransferRunner {
         TransferOutcome cannedOutcome = TransferOutcome.saved();
         RuntimeException runException = null;
+        Error runError = null;
         Consumer<TransferObserver> observerScript = null;
         final List<Integer> runCalls = new ArrayList<>();
         final Set<Integer> cancelledIds = new HashSet<>();
         int deferFirstRunId = -1;
+        int blockRunId = -1;
+        CountDownLatch runEntered;
+        CountDownLatch allowRunReturn;
+        volatile TransferObserver lastObserver;
         final Set<Integer> deferredIds = new HashSet<>();
 
         @Override
@@ -717,8 +951,21 @@ public final class DownloadEngineTest {
             if (runException != null) {
                 throw runException;
             }
+            if (runError != null) {
+                throw runError;
+            }
             if (observerScript != null) {
                 observerScript.accept(observer);
+            }
+            lastObserver = observer;
+            if (id == blockRunId) {
+                runEntered.countDown();
+                try {
+                    allowRunReturn.await();
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(exception);
+                }
             }
             if (id == deferFirstRunId && deferredIds.add(id)) {
                 observer.onWaitingForConnection();

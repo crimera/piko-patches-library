@@ -12,9 +12,14 @@ import androidx.annotation.Nullable;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import app.morphe.extension.crimera.downloader.engine.DownloadControllers;
 import app.morphe.extension.crimera.downloader.engine.DownloadLog;
+import app.morphe.extension.crimera.downloader.engine.DownloadNotifications;
 import app.morphe.extension.crimera.downloader.engine.HttpTransfer;
 import app.morphe.extension.crimera.downloader.engine.NotificationListener;
 import app.morphe.extension.crimera.downloader.engine.NotificationTexts;
@@ -22,7 +27,7 @@ import app.morphe.extension.crimera.downloader.engine.SafDestination;
 import app.morphe.extension.crimera.downloader.events.DownloadEvents;
 
 /**
- * Wires the engine the usual way: SAF destination, HTTP transfer, one transfer thread, and
+ * Wires the engine the usual way: SAF destination, HTTP transfer, a small transfer pool, and
  * notifications on their own thread. An app that needs something else builds a {@link DownloadEngine} itself.
  */
 public final class Downloader {
@@ -59,8 +64,9 @@ public final class Downloader {
                 new SafDestination(log),
                 new HttpTransfer(log),
                 events,
-                singleThread("downloads"),
+                transferPool(),
                 System::currentTimeMillis);
+        DownloadNotifications.dismissOrphanedProgress(applicationContext, channelId);
         events.register(
                 new NotificationListener(applicationContext, channelId, channelName, texts, created::requestFor),
                 singleThread("download-notifications"));
@@ -81,5 +87,23 @@ public final class Downloader {
             thread.setDaemon(true);
             return thread;
         });
+    }
+
+    private static Executor transferPool() {
+        AtomicInteger nextThreadId = new AtomicInteger(1);
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                3,
+                3,
+                30,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                runnable -> {
+                    Thread thread = new Thread(runnable, "downloads-" + nextThreadId.getAndIncrement());
+                    thread.setDaemon(true);
+                    return thread;
+                }
+        );
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
     }
 }
