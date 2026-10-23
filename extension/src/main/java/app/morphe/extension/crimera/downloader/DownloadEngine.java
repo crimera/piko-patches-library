@@ -19,6 +19,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
 
@@ -40,11 +41,19 @@ import app.morphe.extension.crimera.downloader.model.DownloadRequest;
 /** Orchestrates destination reservations, transfers, and lifecycle events. */
 public final class DownloadEngine implements DownloadController {
     private static final int MAX_RECENT = 256;
+    static final long STALL_TIMEOUT_MS = 3 * 60_000L;
+    static final long CANCEL_GRACE_MS = 5_000L;
+    static final long WATCHDOG_INTERVAL_MS = 5_000L;
     private static final ScheduledThreadPoolExecutor DEFERRED_EXECUTOR = createDeferredExecutor();
     private static final DeferredScheduler DEFAULT_DEFERRED_SCHEDULER = (task, delayMillis) -> {
         ScheduledFuture<?> future = DEFERRED_EXECUTOR.schedule(
                 task, Math.max(0, delayMillis), TimeUnit.MILLISECONDS);
         return () -> future.cancel(false);
+    };
+    private static final Executor DEFAULT_CLEANUP_EXECUTOR = task -> {
+        Thread thread = new Thread(task, "download-cleanup");
+        thread.setDaemon(true);
+        thread.start();
     };
 
     /**
@@ -59,8 +68,14 @@ public final class DownloadEngine implements DownloadController {
     private final TransferRunner transfer;
     private final DownloadEvents events;
     private final Executor transferExecutor;
+    private final Executor cleanupExecutor;
     private final DeferredScheduler deferredScheduler;
     private final ProgressThrottle throttle;
+    private final LongSupplier clockMillis;
+    private final long stallTimeoutMillis;
+    private final long cancelGraceMillis;
+    private final long watchdogIntervalMillis;
+    private final AtomicBoolean watchdogScheduled = new AtomicBoolean();
 
     private final AtomicInteger nextId = new AtomicInteger(1);
     private final ConcurrentHashMap<Integer, DownloadRecord> activeDownloads = new ConcurrentHashMap<>();
@@ -93,13 +108,55 @@ public final class DownloadEngine implements DownloadController {
             DeferredScheduler deferredScheduler,
             LongSupplier clockMillis
     ) {
+        this(applicationContext, destination, transfer, events, transferExecutor, deferredScheduler,
+                clockMillis, STALL_TIMEOUT_MS, CANCEL_GRACE_MS, WATCHDOG_INTERVAL_MS);
+    }
+
+    DownloadEngine(
+            @Nullable Context applicationContext,
+            DestinationWriter destination,
+            TransferRunner transfer,
+            DownloadEvents events,
+            Executor transferExecutor,
+            DeferredScheduler deferredScheduler,
+            LongSupplier clockMillis,
+            long stallTimeoutMillis,
+            long cancelGraceMillis,
+            long watchdogIntervalMillis
+    ) {
+        this(applicationContext, destination, transfer, events, transferExecutor, deferredScheduler,
+                clockMillis, stallTimeoutMillis, cancelGraceMillis, watchdogIntervalMillis,
+                DEFAULT_CLEANUP_EXECUTOR);
+    }
+
+    DownloadEngine(
+            @Nullable Context applicationContext,
+            DestinationWriter destination,
+            TransferRunner transfer,
+            DownloadEvents events,
+            Executor transferExecutor,
+            DeferredScheduler deferredScheduler,
+            LongSupplier clockMillis,
+            long stallTimeoutMillis,
+            long cancelGraceMillis,
+            long watchdogIntervalMillis,
+            Executor cleanupExecutor
+    ) {
         this.applicationContext = applicationContext;
         this.destination = Objects.requireNonNull(destination, "destination");
         this.transfer = Objects.requireNonNull(transfer, "transfer");
         this.events = Objects.requireNonNull(events, "events");
         this.transferExecutor = Objects.requireNonNull(transferExecutor, "transferExecutor");
+        this.cleanupExecutor = Objects.requireNonNull(cleanupExecutor, "cleanupExecutor");
         this.deferredScheduler = Objects.requireNonNull(deferredScheduler, "deferredScheduler");
-        this.throttle = new ProgressThrottle(Objects.requireNonNull(clockMillis, "clockMillis"));
+        this.clockMillis = Objects.requireNonNull(clockMillis, "clockMillis");
+        if (stallTimeoutMillis <= 0 || cancelGraceMillis <= 0 || watchdogIntervalMillis <= 0) {
+            throw new IllegalArgumentException("watchdog timeouts must be positive");
+        }
+        this.stallTimeoutMillis = stallTimeoutMillis;
+        this.cancelGraceMillis = cancelGraceMillis;
+        this.watchdogIntervalMillis = watchdogIntervalMillis;
+        this.throttle = new ProgressThrottle(this.clockMillis);
     }
 
     /** Reserves the destination on the caller's thread, then runs the transfer on the executor. */
@@ -145,7 +202,8 @@ public final class DownloadEngine implements DownloadController {
             recent.put(id, record);
         }
 
-        events.post(new DownloadEvent.Queued(id, request.label()));
+        ensureWatchdogScheduled();
+        postEventSafely(new DownloadEvent.Queued(id, request.label()));
 
         RejectedExecutionException rejection = submitTransfer(record);
         if (rejection != null) return EnqueueResult.failed(rejection);
@@ -163,13 +221,16 @@ public final class DownloadEngine implements DownloadController {
         boolean resumeNow;
         synchronized (record) {
             if (record.terminal) return false;
-            record.cancelRequested = true;
+            if (!record.cancelRequested) {
+                record.cancelRequested = true;
+                record.cancelRequestedAtMillis = clockMillis.getAsLong();
+            }
             wakeup = record.wakeup;
             record.wakeup = null;
             resumeNow = wakeup != null && !record.transferRunning && !record.transferQueued;
         }
         transfer.cancel(id);
-        if (wakeup != null) wakeup.cancel();
+        if (wakeup != null) cancelWakeupQuietly(wakeup);
         if (resumeNow) submitTransfer(record);
         return true;
     }
@@ -258,6 +319,7 @@ public final class DownloadEngine implements DownloadController {
             record.transferQueued = false;
             if (record.terminal) return;
             record.transferRunning = true;
+            record.lastActivityMillis = clockMillis.getAsLong();
             if (!record.started) {
                 record.started = true;
                 record.state = DownloadHandle.State.RUNNING;
@@ -265,28 +327,31 @@ public final class DownloadEngine implements DownloadController {
                 postStarted = true;
             }
         }
-        if (postStarted) events.post(new DownloadEvent.Started(id, request.label()));
+        if (postStarted) postEventSafely(new DownloadEvent.Started(id, request.label()));
 
         TransferObserver observer = new TransferObserver() {
             @Override
             public void onWaitingForConnection() {
+                if (!recordActivity(record)) return;
                 record.lastEventWasWaiting = true;
-                events.post(new DownloadEvent.Waiting(id, request.label()));
+                postEventSafely(new DownloadEvent.Waiting(id, request.label()));
             }
 
             @Override
             public void onTransferring() {
+                if (!recordActivity(record)) return;
                 if (record.lastEventWasWaiting) {
                     record.lastEventWasWaiting = false;
-                    events.post(new DownloadEvent.Started(id, request.label()));
+                    postEventSafely(new DownloadEvent.Started(id, request.label()));
                 }
             }
 
             @Override
             public void onProgress(long bytesDone, long totalBytes) {
+                if (!recordActivity(record)) return;
                 if (throttle.shouldEmit(id, bytesDone, totalBytes)) {
                     record.lastEventWasWaiting = false;
-                    events.post(new DownloadEvent.Progress(id, request.label(), bytesDone, totalBytes));
+                    postEventSafely(new DownloadEvent.Progress(id, request.label(), bytesDone, totalBytes));
                 }
             }
         };
@@ -297,11 +362,15 @@ public final class DownloadEngine implements DownloadController {
             if (outcome == null) {
                 outcome = TransferOutcome.failed(new IllegalStateException("transfer returned null outcome"));
             }
-        } catch (RuntimeException e) {
+        } catch (Throwable e) {
             outcome = TransferOutcome.failed(e);
         }
 
         boolean deferred = outcome.kind() == TransferOutcome.Kind.DEFERRED;
+        synchronized (record) {
+            if (record.terminal) return;
+            if (!deferred) record.terminal = true;
+        }
         try {
             if (deferred) {
                 deferTransfer(record, outcome);
@@ -309,31 +378,25 @@ public final class DownloadEngine implements DownloadController {
             }
 
             if (outcome.kind() == TransferOutcome.Kind.SAVED) {
-                events.post(new DownloadEvent.Completed(
+                record.state = DownloadHandle.State.COMPLETED;
+                postEventSafely(new DownloadEvent.Completed(
                         id,
                         request.label(),
                         record.reservation.documentUri(),
                         record.reservation.fileName(),
                         record.reservation.mimeType()
                 ));
-                record.state = DownloadHandle.State.COMPLETED;
             } else if (outcome.kind() == TransferOutcome.Kind.CANCELLED) {
-                try {
-                    destination.discard(applicationContext, record.reservation);
-                } catch (Exception ignored) {
-                }
-                events.post(new DownloadEvent.Cancelled(id, request.label()));
+                discardQuietly(record);
                 record.state = DownloadHandle.State.CANCELLED;
+                postEventSafely(new DownloadEvent.Cancelled(id, request.label()));
             } else {
-                try {
-                    destination.discard(applicationContext, record.reservation);
-                } catch (Exception ignored) {
-                }
+                discardQuietly(record);
                 Throwable cause = outcome.cause();
                 FailureReason reason = FailureClassifier.classify(cause);
                 boolean retriable = reason != FailureReason.DESTINATION_LOST;
-                events.post(new DownloadEvent.Failed(id, request.label(), reason, retriable));
                 record.state = DownloadHandle.State.FAILED;
+                postEventSafely(new DownloadEvent.Failed(id, request.label(), reason, retriable));
             }
         } finally {
             if (!deferred) finishTransfer(record);
@@ -365,12 +428,11 @@ public final class DownloadEngine implements DownloadController {
 
     private void finishTransfer(DownloadRecord record) {
         synchronized (record) {
-            if (record.terminal) return;
             record.terminal = true;
             record.transferRunning = false;
             record.transferQueued = false;
             if (record.wakeup != null) {
-                record.wakeup.cancel();
+                cancelWakeupQuietly(record.wakeup);
                 record.wakeup = null;
             }
         }
@@ -385,19 +447,115 @@ public final class DownloadEngine implements DownloadController {
             record.transferQueued = false;
             record.transferRunning = false;
             if (record.wakeup != null) {
-                record.wakeup.cancel();
+                cancelWakeupQuietly(record.wakeup);
                 record.wakeup = null;
             }
         }
-        try {
-            destination.discard(applicationContext, record.reservation);
-        } catch (Exception ignored) {
-        }
-        events.post(new DownloadEvent.Failed(
-                record.id, record.request.label(), FailureReason.UNKNOWN, true));
+        discardQuietly(record);
         record.state = DownloadHandle.State.FAILED;
+        postEventSafely(new DownloadEvent.Failed(
+                record.id, record.request.label(), FailureReason.UNKNOWN, true));
         throttle.forget(record.id);
         activeDownloads.remove(record.id, record);
+    }
+
+    private boolean recordActivity(DownloadRecord record) {
+        synchronized (record) {
+            if (record.terminal) return false;
+            record.lastActivityMillis = clockMillis.getAsLong();
+            return true;
+        }
+    }
+
+    private void ensureWatchdogScheduled() {
+        if (activeDownloads.isEmpty() || !watchdogScheduled.compareAndSet(false, true)) return;
+        try {
+            deferredScheduler.schedule(this::runWatchdog, watchdogIntervalMillis);
+        } catch (RuntimeException ignored) {
+            watchdogScheduled.set(false);
+        }
+    }
+
+    private void runWatchdog() {
+        watchdogScheduled.set(false);
+        try {
+            checkWatchdog();
+        } finally {
+            ensureWatchdogScheduled();
+        }
+    }
+
+    void checkWatchdog() {
+        long now = clockMillis.getAsLong();
+        for (DownloadRecord record : activeDownloads.values()) {
+            boolean cancelExpired;
+            boolean stalled;
+            synchronized (record) {
+                if (record.terminal || !record.transferRunning) continue;
+                cancelExpired = record.cancelRequested
+                        && now - record.cancelRequestedAtMillis >= cancelGraceMillis;
+                stalled = !cancelExpired && now - record.lastActivityMillis >= stallTimeoutMillis;
+            }
+            if (cancelExpired) {
+                abandon(record, TransferOutcome.Kind.CANCELLED);
+            } else if (stalled) {
+                abandon(record, TransferOutcome.Kind.FAILED);
+            }
+        }
+    }
+
+    private void abandon(DownloadRecord record, TransferOutcome.Kind kind) {
+        synchronized (record) {
+            if (record.terminal) return;
+            record.terminal = true;
+            record.transferRunning = false;
+            record.transferQueued = false;
+            if (record.wakeup != null) {
+                cancelWakeupQuietly(record.wakeup);
+                record.wakeup = null;
+            }
+        }
+
+        try {
+            transfer.cancel(record.id);
+        } catch (Throwable ignored) {
+        }
+        if (kind == TransferOutcome.Kind.CANCELLED) {
+            record.state = DownloadHandle.State.CANCELLED;
+            postEventSafely(new DownloadEvent.Cancelled(record.id, record.request.label()));
+        } else {
+            record.state = DownloadHandle.State.FAILED;
+            postEventSafely(new DownloadEvent.Failed(
+                    record.id, record.request.label(), FailureReason.UNKNOWN, true));
+        }
+        try {
+            cleanupExecutor.execute(() -> discardQuietly(record));
+        } catch (RejectedExecutionException ignored) {
+        }
+        throttle.forget(record.id);
+        activeDownloads.remove(record.id, record);
+    }
+
+    private void discardQuietly(DownloadRecord record) {
+        try {
+            destination.discard(applicationContext, record.reservation);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void cancelWakeupQuietly(DeferredScheduler.Cancellable wakeup) {
+        try {
+            wakeup.cancel();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void postEventSafely(DownloadEvent event) {
+        try {
+            events.post(event);
+        } catch (Throwable ignored) {
+            // Listener dispatch must not strand a transfer or skip terminal cleanup.
+        }
     }
 
     private static ScheduledThreadPoolExecutor createDeferredExecutor() {
@@ -422,6 +580,8 @@ public final class DownloadEngine implements DownloadController {
         boolean transferRunning;
         boolean terminal;
         boolean cancelRequested;
+        volatile long lastActivityMillis;
+        long cancelRequestedAtMillis;
         DeferredScheduler.Cancellable wakeup;
 
         DownloadRecord(int id, DownloadRequest request, Reservation reservation, DownloadEngine engine) {

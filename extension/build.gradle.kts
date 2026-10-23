@@ -37,13 +37,13 @@ android {
 dependencies {
     // Provided at runtime by the Morphe shared extension bundle, so it is not part of this artifact.
     // Consumers pin their own version of it.
-    compileOnly("app.morphe:morphe-extensions-library:1.5.0")
+    compileOnly("app.morphe:morphe-extensions-library:1.6.0")
     compileOnly("androidx.annotation:annotation:1.9.1")
 
     testImplementation("junit:junit:4.13.2")
     // Reflection-based settings tests load every signature type of the registry, so the real Morphe
     // classes must be present at test runtime. The small stubs in src/test shadow the ones that need Android.
-    testImplementation("app.morphe:morphe-extensions-library:1.5.0")
+    testImplementation("app.morphe:morphe-extensions-library:1.6.0")
     testImplementation("androidx.annotation:annotation:1.9.1")
 }
 

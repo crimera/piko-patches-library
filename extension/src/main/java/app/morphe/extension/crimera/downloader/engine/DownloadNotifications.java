@@ -15,11 +15,13 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.util.Size;
+import android.service.notification.StatusBarNotification;
 
 import androidx.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import app.morphe.extension.crimera.downloader.CancelReceiver;
@@ -34,6 +36,7 @@ import app.morphe.extension.crimera.downloader.model.DownloadRequest;
 public final class DownloadNotifications {
     /** Completed and failed notices count up from just above every id the engine hands out. */
     static final int FIRST_TERMINAL_ID = DownloadEngine.MAX_FRESH_ID + 1;
+    static final long PROGRESS_TIMEOUT_MS = 15 * 60_000L;
 
     private static final AtomicInteger NEXT_NOTIFICATION_ID = new AtomicInteger(FIRST_TERMINAL_ID);
 
@@ -141,6 +144,7 @@ public final class DownloadNotifications {
                     .setContentText(texts.waitingForConnection())
                     .setOngoing(true)
                     .setProgress(100, 0, true);
+            setProgressTimeout(builder);
             PendingIntent cancel = CancelReceiver.cancelPendingIntent(context, id);
             if (cancel != null) {
                 builder.addAction(
@@ -173,6 +177,7 @@ public final class DownloadNotifications {
                     .setContentTitle(fileName)
                     .setOngoing(true)
                     .setProgress(100, 0, true);
+            setProgressTimeout(builder);
             PendingIntent cancel = CancelReceiver.cancelPendingIntent(context, id);
             if (cancel != null) {
                 builder.addAction(
@@ -218,6 +223,7 @@ public final class DownloadNotifications {
                     .setContentText(progress + "% · " + speedText(bytesPerSecond))
                     .setOngoing(true)
                     .setProgress(100, progress, false);
+            setProgressTimeout(builder);
             PendingIntent cancel = CancelReceiver.cancelPendingIntent(context, id);
             if (cancel != null) {
                 builder.addAction(
@@ -252,6 +258,7 @@ public final class DownloadNotifications {
                     .setContentText(speedText(bytesPerSecond))
                     .setOngoing(true)
                     .setProgress(100, 0, true);
+            setProgressTimeout(builder);
             PendingIntent cancel = CancelReceiver.cancelPendingIntent(context, id);
             if (cancel != null) {
                 builder.addAction(
@@ -430,6 +437,23 @@ public final class DownloadNotifications {
         }
     }
 
+    /** Clears progress notices left behind when the process died before posting a terminal notice. */
+    public static void dismissOrphanedProgress(Context context, String channelId) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        try {
+            NotificationManager manager = notificationManager(context);
+            if (manager == null) return;
+            for (StatusBarNotification active : manager.getActiveNotifications()) {
+                if (active.getId() > DownloadEngine.MAX_FRESH_ID) continue;
+                Notification notification = active.getNotification();
+                if (notification != null && Objects.equals(channelId, notification.getChannelId())) {
+                    manager.cancel(active.getId());
+                }
+            }
+        } catch (RuntimeException ignored) {
+        }
+    }
+
     @Nullable
     private static NotificationManager notificationManager(Context context) {
         if (context == null) {
@@ -449,6 +473,13 @@ public final class DownloadNotifications {
             return new Notification.Builder(context, channelId);
         }
         return new Notification.Builder(context);
+    }
+
+    private static void setProgressTimeout(Notification.Builder builder) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Progress updates refresh this timeout; after process death only orphaned notices expire.
+            builder.setTimeoutAfter(PROGRESS_TIMEOUT_MS);
+        }
     }
 
     private static void createNotificationChannel(
