@@ -31,10 +31,10 @@ dependencies {
     api("app.morphe:morphe-patcher:2.0.0")
 
     // Patch-side utilities (bundled resources, resource mapping, settings helpers).
-    api("app.morphe:morphe-patches-library:1.6.0")
+    api("app.morphe:morphe-patches-library:2.0.1-dev.1")
 
     // The dexlib2 fork the patcher and this library are built against.
-    api("com.github.MorpheApp.smali:smali-dexlib2:d92701d947")
+    api("com.github.MorpheApp.smali:smali-dexlib2:4220ae75f7")
 
     // Typed bytecode emission used by the semantic bridge emitters.
     api("crimera:morphe-bytecode:0.1.3")
