@@ -1,3 +1,17 @@
+# [0.10.0](https://github.com/crimera/piko-patches-library/compare/v0.9.1...v0.10.0) (2026-10-23)
+
+
+### Bug Fixes
+
+* align shared patch helpers with Morphe 2 libraries ([d01a190](https://github.com/crimera/piko-patches-library/commit/d01a190f80c77681683717e1573c6e59f8c4baf0))
+* **downloader:** recover stalled transfers and orphaned notifications ([5c992e0](https://github.com/crimera/piko-patches-library/commit/5c992e00b12f9ee819e29423a2ca7ee2eb16887b))
+* use morphe-bytecode 0.1.4 ([c4bba4f](https://github.com/crimera/piko-patches-library/commit/c4bba4f9d9228b61acb2bf64d80afbe944c8e4fb))
+
+
+### Features
+
+* migrate shared library to Morphe Patcher 2.0 ([ddc7628](https://github.com/crimera/piko-patches-library/commit/ddc7628ef710d45045cc44f628b2826db6de261c))
+
 # [0.10.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.9.1...v0.10.0-dev.1) (2026-10-23)
 
 
