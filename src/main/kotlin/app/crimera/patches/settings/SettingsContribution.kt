@@ -9,7 +9,9 @@ import app.morphe.patcher.extensions.InstructionExtensions.instructions
 import app.morphe.patcher.patch.BytecodePatchContext
 import app.morphe.patcher.patch.Patch
 import app.morphe.patcher.patch.PatchException
-import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.bytecodeContext
+import app.morphe.patcher.patch.mutableClassDefBy
+import app.morphe.patcher.patch.patch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import app.morphe.util.cloneMutable
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
@@ -23,7 +25,7 @@ import java.util.WeakHashMap
 fun settingsContributionPatch(
     basePatch: Patch,
     contribution: SettingsContributionCatalog,
-) = bytecodePatch(default = false) {
+) = patch(default = false) {
     dependsOn(basePatch)
 
     execute {
@@ -140,8 +142,8 @@ object SettingsRegistrationState {
     }
 }
 
-context(context: BytecodePatchContext)
 internal fun injectSettingsContribution(contribution: SettingsContributionCatalog) {
+    val context = bytecodeContext
     SettingsRegistrationState.inject(context) { registrationInstructions(context, contribution) }
 }
 
@@ -644,9 +646,9 @@ private fun ToggleSettingDefinition.branch(
  * registers when needed and inserts the `isLoaded()` guard that contributions are injected behind.
  * The app's base settings patch calls this from its `execute` block, before any contribution runs.
  */
-context(context: BytecodePatchContext)
 fun prepareSettingsRegistryLoad() {
-    val registryClass = context.mutableClassDefBy(SETTINGS_REGISTRY_DESCRIPTOR)
+    val context = bytecodeContext
+    val registryClass = mutableClassDefBy(SETTINGS_REGISTRY_DESCRIPTOR)
     val loadMethod =
         registryClass.methods.singleOrNull { method ->
             method.name == "load" &&

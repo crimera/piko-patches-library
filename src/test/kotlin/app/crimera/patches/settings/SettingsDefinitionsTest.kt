@@ -1,6 +1,6 @@
 package app.crimera.patches.settings
 
-import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.patch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -29,7 +29,7 @@ class SettingsDefinitionsTest {
         try {
             lateinit var settings: FeatureSettings
             val patch =
-                bytecodePatch(name = "Advanced Test settings test", default = false) {
+                patch(name = "Advanced Test settings test", default = false) {
                     settings =
                         contributeSettings(TEST_CONFIG) {
                             category(Categories.CONTENT) {
@@ -128,7 +128,7 @@ class SettingsDefinitionsTest {
     @Test
     fun `toggle attaches exactly one hidden contribution dependency`() {
         val patch =
-            bytecodePatch(name = "Test settings test", default = false) {
+            patch(name = "Test settings test", default = false) {
                 settingsToggle(
                     config = TEST_CONFIG,
                     id = "app.content.test",

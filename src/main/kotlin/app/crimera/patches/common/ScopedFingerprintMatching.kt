@@ -4,6 +4,9 @@ import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.InstructionFilter
 import app.morphe.patcher.Match
 import app.morphe.patcher.patch.BytecodePatchContext
+import app.morphe.patcher.patch.bytecodeContext
+import app.morphe.patcher.patch.classDefByOrNull
+import app.morphe.patcher.patch.classDefForEach
 import app.morphe.patcher.util.proxy.mutableTypes.MutableClass
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.iface.ClassDef
@@ -20,7 +23,7 @@ private data class IndexedMethod(
     val originalMethod: Method,
 ) {
     fun resolveCurrent(context: BytecodePatchContext): Method? {
-        val currentClass = context.classDefByOrNull(originalClass.type) ?: return null
+        val currentClass = classDefByOrNull(originalClass.type) ?: return null
         if (currentClass === originalClass && currentClass !is MutableClass) return originalMethod
 
         return currentClass.methods.singleOrNull { currentMethod ->
@@ -42,7 +45,7 @@ private object ShapeMethodIndex {
         synchronized(methodsByShape) {
             methodsByShape.getOrPut(context) {
                 buildMap<MethodShape, MutableList<IndexedMethod>> {
-                    context.classDefForEach { classDef ->
+                    classDefForEach { classDef ->
                         classDef.methods.forEach { method ->
                             val methodShape = MethodShape(method.returnType, method.parameterTypes.size)
                             getOrPut(methodShape, ::mutableListOf).add(IndexedMethod(classDef, method))
@@ -84,12 +87,11 @@ open class ShapeFingerprint(
 }
 
 /** Native all-match for ordinary fingerprints; explicit declarations retain the measured shape table. */
-context(context: BytecodePatchContext)
 fun Fingerprint.scopedMatchAllOrNull(): List<Match>? {
     val nestedClassFingerprint = classFingerprint
     if (nestedClassFingerprint != null) {
         val originalClass = nestedClassFingerprint.matchOrNull()?.originalClassDef ?: return null
-        val classDef = context.classDefByOrNull(originalClass.type) ?: return null
+        val classDef = classDefByOrNull(originalClass.type) ?: return null
         val matches = buildList {
             classDef.methods.forEach { method ->
                 val match = matchOrNull(method, classDef) ?: return@forEach
@@ -104,10 +106,10 @@ fun Fingerprint.scopedMatchAllOrNull(): List<Match>? {
     val returnType = shapeFingerprint.declaredReturnType ?: return matchAllOrNull()
     val parameterCount = shapeFingerprint.declaredParameterCount ?: return matchAllOrNull()
     val shape = MethodShape(returnType, parameterCount)
-    val candidates = ShapeMethodIndex.methods(context, shape)
+    val candidates = ShapeMethodIndex.methods(bytecodeContext, shape)
     val matches = buildList {
         candidates.forEach { method ->
-            val classDef = context.classDefByOrNull(method.definingClass) ?: return@forEach
+            val classDef = classDefByOrNull(method.definingClass) ?: return@forEach
             val match = matchOrNull(method, classDef) ?: return@forEach
             add(match)
             clearMatch()
@@ -116,6 +118,5 @@ fun Fingerprint.scopedMatchAllOrNull(): List<Match>? {
     return matches.ifEmpty { null }
 }
 
-context(_: BytecodePatchContext)
 fun Fingerprint.scopedMatchAll(): List<Match> =
     scopedMatchAllOrNull() ?: throw patchException()

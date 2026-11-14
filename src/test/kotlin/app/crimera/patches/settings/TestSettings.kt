@@ -1,11 +1,11 @@
 package app.crimera.patches.settings
 
-import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.patch
 
 /** Fixture app: the config and categories the settings DSL tests contribute against. */
 internal val TEST_CONFIG =
     SettingsPatchConfig(
-        basePatch = bytecodePatch(name = "Test settings base", default = false) {},
+        basePatch = patch(name = "Test settings base", default = false) {},
         idPattern = Regex("app\\.[a-z0-9._-]+"),
         resourceNamePattern = Regex("piko_app_[a-z0-9_]+"),
         label = "Test",

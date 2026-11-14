@@ -1,6 +1,7 @@
 package app.crimera.patches.common
 
 import app.morphe.patcher.patch.BytecodePatchContext
+import app.morphe.patcher.patch.classDefByOrNull
 
 /**
  * Platform collection interfaces live on the framework classpath, not in the dex, so a concrete
@@ -40,7 +41,10 @@ private val PLATFORM_IMPLEMENTATIONS =
             ),
     )
 
-fun BytecodePatchContext.isAssignableTo(descriptor: String, target: String): Boolean {
+fun BytecodePatchContext.isAssignableTo(descriptor: String, target: String): Boolean =
+    app.crimera.patches.common.isAssignableTo(descriptor, target)
+
+fun isAssignableTo(descriptor: String, target: String): Boolean {
     if (descriptor == target) return true
     if (descriptor in PLATFORM_IMPLEMENTATIONS[target].orEmpty()) return true
     val classDef = classDefByOrNull(descriptor) ?: return false

@@ -7,7 +7,8 @@
 package app.crimera.patches.downloader
 
 import app.morphe.patcher.patch.PatchException
-import app.morphe.patcher.patch.resourcePatch
+import app.morphe.patcher.patch.document
+import app.morphe.patcher.patch.patch
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import org.w3c.dom.Node
@@ -64,7 +65,7 @@ private fun Element.hasComponent(name: String): Boolean {
 }
 
 val downloaderManifestPatch =
-    resourcePatch(
+    patch(
         description = "Adds the shared downloader components to the Android manifest.",
     ) {
         finalize {
