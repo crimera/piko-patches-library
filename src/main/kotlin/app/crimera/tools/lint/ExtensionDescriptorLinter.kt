@@ -373,9 +373,10 @@ private fun kotlinSources(root: File): List<SourceFile> =
         .toList()
 
 private fun extensionDexes(root: File): List<File> =
-    root.listFiles { file -> file.isFile && file.name.endsWith(".mpe") }
-        .orEmpty()
+    root.walkTopDown()
+        .filter { it.isFile && it.name.endsWith(".mpe") }
         .sorted()
+        .toList()
 
 fun main(args: Array<String>) {
     val options =
