@@ -1,3 +1,10 @@
+## [0.10.1-dev.5](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.4...v0.10.1-dev.5) (2026-11-14)
+
+
+### Performance Improvements
+
+* **resources:** parallelize raw XML resource patching for Morphe Patcher 2.3.0 ([3342cad](https://github.com/crimera/piko-patches-library/commit/3342cad01280fb8e1c2d45af8fc1512dfd55e20b))
+
 ## [0.10.1-dev.4](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.3...v0.10.1-dev.4) (2026-11-14)
 
 
