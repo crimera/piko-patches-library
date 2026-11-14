@@ -1,3 +1,10 @@
+## [0.10.1-dev.2](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.1...v0.10.1-dev.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* update to Morphe Patcher 2.3.0 ([92ccbc0](https://github.com/crimera/piko-patches-library/commit/92ccbc01b52a124000ac28d4f624f4ef8425e670))
+
 ## [0.10.1-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.10.0...v0.10.1-dev.1) (2026-10-23)
 
 
