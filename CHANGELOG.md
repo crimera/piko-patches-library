@@ -1,3 +1,10 @@
+## [0.10.1-dev.3](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.2...v0.10.1-dev.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **lint:** discover nested .mpe extension files ([6328673](https://github.com/crimera/piko-patches-library/commit/63286731b0fe6f119d2254f45d6492f41a1a30f2))
+
 ## [0.10.1-dev.2](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.1...v0.10.1-dev.2) (2026-11-14)
 
 
