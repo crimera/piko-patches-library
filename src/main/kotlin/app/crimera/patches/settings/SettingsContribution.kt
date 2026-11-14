@@ -21,7 +21,7 @@ import java.util.WeakHashMap
  * patch; depending on it guarantees the registry's `load()` is prepared before anything is injected.
  */
 fun settingsContributionPatch(
-    basePatch: Patch<*>,
+    basePatch: Patch,
     contribution: SettingsContributionCatalog,
 ) = bytecodePatch(default = false) {
     dependsOn(basePatch)

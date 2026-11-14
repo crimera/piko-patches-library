@@ -28,10 +28,10 @@ kotlin {
 
 dependencies {
     // The patcher API every helper emits into.
-    api("app.morphe:morphe-patcher:2.0.0")
+    api("app.morphe:morphe-patcher:2.3.0")
 
     // Patch-side utilities (bundled resources, resource mapping, settings helpers).
-    api("app.morphe:morphe-patches-library:2.0.1-dev.1")
+    api("app.morphe:morphe-patches-library:2.2.0-dev.4")
 
     // The dexlib2 fork the patcher and this library are built against.
     api("com.github.MorpheApp.smali:smali-dexlib2:4220ae75f7")

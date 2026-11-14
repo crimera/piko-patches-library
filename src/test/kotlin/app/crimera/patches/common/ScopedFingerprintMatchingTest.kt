@@ -2,6 +2,7 @@ package app.crimera.patches.common
 
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.PatcherConfig
+import app.morphe.patcher.PatcherContext
 import app.morphe.patcher.extensions.InstructionExtensions.instructions
 import app.morphe.patcher.patch.BytecodePatchContext
 import app.morphe.patcher.util.proxy.mutableTypes.MutableClass
@@ -109,23 +110,43 @@ class ScopedFingerprintMatchingTest {
     private class BytecodeContextFixture(classDef: ClassDef) : AutoCloseable {
         private val root = Files.createTempDirectory("scoped-fingerprint-test").toFile()
         val context = createContext(root)
+        private val patcherContext = createPatcherContext(context)
+        private val currentField = PatcherContext::class.java.getDeclaredField("current").apply {
+            isAccessible = true
+        }
 
         init {
             // Patcher exposes no public in-memory context fixture, so seed its real class index here.
             val patchClassesType = Class.forName("app.morphe.patcher.util.PatchClasses")
             val patchClassesConstructor = patchClassesType.declaredConstructors.single { constructor ->
-                constructor.parameterCount == 1 && Set::class.java.isAssignableFrom(constructor.parameterTypes[0])
+                constructor.parameterCount == 2 && Set::class.java.isAssignableFrom(constructor.parameterTypes[0])
             }
-            val patchClasses = patchClassesConstructor.newInstance(setOf(classDef))
+            val patchClasses = patchClassesConstructor.newInstance(setOf(classDef), null)
             BytecodePatchContext::class.java.getDeclaredMethod(
                 "setPatchClasses\$morphe_patcher",
                 patchClassesType,
             ).invoke(context, patchClasses)
+            currentField.set(null, patcherContext)
         }
 
         override fun close() {
+            if (currentField.get(null) === patcherContext) {
+                currentField.set(null, null)
+            }
             context.close()
             root.deleteRecursively()
+        }
+
+        private fun createPatcherContext(bytecodeContext: BytecodePatchContext): PatcherContext {
+            val unsafeClass = Class.forName("sun.misc.Unsafe")
+            val theUnsafe = unsafeClass.getDeclaredField("theUnsafe").apply { isAccessible = true }.get(null)
+            val allocateInstance = unsafeClass.getMethod("allocateInstance", Class::class.java)
+            val instance = allocateInstance.invoke(theUnsafe, PatcherContext::class.java) as PatcherContext
+            PatcherContext::class.java.getDeclaredField("bytecodeContext").apply {
+                isAccessible = true
+                set(instance, bytecodeContext)
+            }
+            return instance
         }
 
         private fun createContext(root: File): BytecodePatchContext {
