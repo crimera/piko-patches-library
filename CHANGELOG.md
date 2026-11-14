@@ -1,3 +1,10 @@
+## [0.10.1-dev.4](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.3...v0.10.1-dev.4) (2026-11-14)
+
+
+### Bug Fixes
+
+* bump morphe-bytecode to 0.1.5 ([88555dd](https://github.com/crimera/piko-patches-library/commit/88555ddc2075d6f1654a6340611753b1515895ba))
+
 ## [0.10.1-dev.3](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.2...v0.10.1-dev.3) (2026-11-14)
 
 
