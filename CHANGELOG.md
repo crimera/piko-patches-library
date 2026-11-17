@@ -1,3 +1,10 @@
+# [0.11.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.5...v0.11.0-dev.1) (2026-11-17)
+
+
+### Features
+
+* Support Morphe Patcher 2.4.0 ([2f01f3d](https://github.com/crimera/piko-patches-library/commit/2f01f3d8456d23e175a70b29a9bd6ba9c4902b91))
+
 ## [0.10.1-dev.5](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.4...v0.10.1-dev.5) (2026-11-14)
 
 
