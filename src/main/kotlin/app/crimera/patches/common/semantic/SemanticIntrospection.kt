@@ -8,8 +8,9 @@ import app.crimera.patches.common.scopedMatchAll
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.Match
 import app.morphe.patcher.extensions.InstructionExtensions.instructions
-import app.morphe.patcher.patch.BytecodePatchContext
 import app.morphe.patcher.patch.PatchException
+import app.morphe.patcher.patch.classDefByOrNull
+import app.morphe.patcher.patch.mutableClassDefBy
 import app.morphe.patcher.util.proxy.mutableTypes.MutableClass
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import app.morphe.patcher.util.getReference
@@ -31,7 +32,6 @@ import java.util.ArrayDeque
 
 private const val OBJECT_DESCRIPTOR = "Ljava/lang/Object;"
 
-context(_: BytecodePatchContext)
 fun Fingerprint.requireSingle(target: String): Match {
     val matches = scopedMatchAll()
     return requireExactlyOne("$target", matches)
@@ -385,19 +385,17 @@ fun MutableMethod.patchBridge(block: Block.() -> Unit) {
     insertHook(index = 0, relocateBranchTargets = false, block = block)
 }
 
-context(context: BytecodePatchContext)
 fun MethodReference.resolveCurrentMethod(label: String): Method {
-    val owner = context.classDefByOrNull(definingClass)
+    val owner = classDefByOrNull(definingClass)
         ?: throw PatchException("$label owner was not found: $definingClass")
     val matches = owner.methods.filter { method -> matches(method) }
     return requireExactlyOne("$label matching $this in $owner", matches)
 }
 
-context(context: BytecodePatchContext)
 fun MethodReference.resolveMutableMethodOwner(
     label: String,
 ): Pair<MutableClass, MutableMethod> {
-    val owner = context.mutableClassDefBy(definingClass)
+    val owner = mutableClassDefBy(definingClass)
     val matches = owner.methods.filter { method -> matches(method) }
     return owner to requireExactlyOne("$label matching $this in $owner", matches)
 }

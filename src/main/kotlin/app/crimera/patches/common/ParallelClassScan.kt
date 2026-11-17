@@ -1,6 +1,6 @@
 package app.crimera.patches.common
 
-import app.morphe.patcher.patch.BytecodePatchContext
+import app.morphe.patcher.patch.classDefForEach
 import com.android.tools.smali.dexlib2.iface.ClassDef
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
@@ -19,10 +19,9 @@ private const val MIN_PARALLEL_SCAN_CLASSES = 2048
  * several threads at once; it must not mutate shared state or call `mutableClassDefBy`. Heaps
  * below 1 GB (Morphe Manager's 512 MB floor) scan serially to keep transient garbage bounded.
  */
-context(context: BytecodePatchContext)
 fun <T> classDefFlatMap(transform: (ClassDef) -> List<T>): List<T> {
     val classes = ArrayList<ClassDef>(131_072)
-    context.classDefForEach { classes += it }
+    classDefForEach { classes += it }
     return classes.flatMapParallel(transform)
 }
 

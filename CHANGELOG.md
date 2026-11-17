@@ -1,3 +1,45 @@
+# [0.11.0-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.5...v0.11.0-dev.1) (2026-11-17)
+
+
+### Features
+
+* Support Morphe Patcher 2.4.0 ([2f01f3d](https://github.com/crimera/piko-patches-library/commit/2f01f3d8456d23e175a70b29a9bd6ba9c4902b91))
+
+## [0.10.1-dev.5](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.4...v0.10.1-dev.5) (2026-11-14)
+
+
+### Performance Improvements
+
+* **resources:** parallelize raw XML resource patching for Morphe Patcher 2.3.0 ([3342cad](https://github.com/crimera/piko-patches-library/commit/3342cad01280fb8e1c2d45af8fc1512dfd55e20b))
+
+## [0.10.1-dev.4](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.3...v0.10.1-dev.4) (2026-11-14)
+
+
+### Bug Fixes
+
+* bump morphe-bytecode to 0.1.5 ([88555dd](https://github.com/crimera/piko-patches-library/commit/88555ddc2075d6f1654a6340611753b1515895ba))
+
+## [0.10.1-dev.3](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.2...v0.10.1-dev.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **lint:** discover nested .mpe extension files ([6328673](https://github.com/crimera/piko-patches-library/commit/63286731b0fe6f119d2254f45d6492f41a1a30f2))
+
+## [0.10.1-dev.2](https://github.com/crimera/piko-patches-library/compare/v0.10.1-dev.1...v0.10.1-dev.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* update to Morphe Patcher 2.3.0 ([92ccbc0](https://github.com/crimera/piko-patches-library/commit/92ccbc01b52a124000ac28d4f624f4ef8425e670))
+
+## [0.10.1-dev.1](https://github.com/crimera/piko-patches-library/compare/v0.10.0...v0.10.1-dev.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **settings:** align utility calls with Morphe 2 runtime ([81152d9](https://github.com/crimera/piko-patches-library/commit/81152d97810cad35163fd6ccdb751df9f7180c71))
+
 # [0.10.0](https://github.com/crimera/piko-patches-library/compare/v0.9.1...v0.10.0) (2026-10-23)
 
 

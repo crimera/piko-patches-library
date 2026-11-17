@@ -22,7 +22,7 @@ const val SETTINGS_REGISTRATION_REGISTER_COUNT = 6
  * @property label App name used in error messages, for example `NewX`.
  */
 class SettingsPatchConfig(
-    val basePatch: Patch<*>,
+    val basePatch: Patch,
     val idPattern: Regex,
     val resourceNamePattern: Regex,
     val label: String,

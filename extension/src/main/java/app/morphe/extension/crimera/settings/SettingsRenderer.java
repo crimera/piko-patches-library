@@ -50,7 +50,7 @@ public final class SettingsRenderer {
         for (SettingsNode.Category category : categories) {
             screen.addPreference(group(preferenceContext, category, groupNavigator));
         }
-        Utils.setPreferenceTitlesToMultiLineIfNeeded(screen);
+        Utils.setPreferenceTitlesToMultiLine(screen);
     }
 
     public static void renderGroup(
@@ -68,7 +68,7 @@ public final class SettingsRenderer {
                 groupNavigator,
                 screenNavigator
         );
-        Utils.setPreferenceTitlesToMultiLineIfNeeded(screen);
+        Utils.setPreferenceTitlesToMultiLine(screen);
     }
 
     public static int renderSearchResults(
@@ -105,7 +105,7 @@ public final class SettingsRenderer {
             screen.addPreference(preference);
             addedResults++;
         }
-        Utils.setPreferenceTitlesToMultiLineIfNeeded(screen);
+        Utils.setPreferenceTitlesToMultiLine(screen);
         return addedResults;
     }
 

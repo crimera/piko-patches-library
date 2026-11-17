@@ -10,9 +10,9 @@ import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.extensions.InstructionExtensions.instructions
 import app.morphe.patcher.extensions.InstructionExtensions.replaceInstruction
-import app.morphe.patcher.patch.BytecodePatchContext
 import app.morphe.patcher.patch.PatchException
-import app.morphe.patcher.patch.ResourcePatchContext
+import app.morphe.patcher.patch.document
+import app.morphe.patcher.patch.resourceFile
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import app.morphe.util.ResourceGroup
 import app.morphe.util.copyResources
@@ -38,7 +38,7 @@ import com.android.tools.smali.dexlib2.iface.reference.Reference
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import org.w3c.dom.Element
 
-fun ResourcePatchContext.replaceXmlResources(
+fun replaceXmlResources(
     sourceResourceDirectory: String,
     vararg resourceGroups: ResourceGroup,
 ) {
@@ -48,7 +48,7 @@ fun ResourcePatchContext.replaceXmlResources(
             val targetFile = "res/$sourceFile"
 
             // Resolve the exact file so lazy resource decoding runs before the existence check.
-            if (!get(targetFile).exists()) {
+            if (!resourceFile(targetFile).exists()) {
                 copyResources(sourceResourceDirectory, resourceGroup)
                 return@forEach
             }
@@ -78,14 +78,14 @@ fun ResourcePatchContext.replaceXmlResources(
     }
 }
 
-fun ResourcePatchContext.replaceStringsInFile(
+fun replaceStringsInFile(
     vararg resourceGroups: ResourceGroup,
     replacements: Map<String, String>,
 ) {
     resourceGroups.forEach { resourceGroup ->
         resourceGroup.resources.forEach { resource ->
             val sourcePath = "${resourceGroup.resourceDirectoryName}/$resource"
-            val sourceFile = get("res/$sourcePath")
+            val sourceFile = resourceFile("res/$sourcePath")
             if (sourceFile.exists()) {
                 var content = sourceFile.readText()
 
@@ -128,16 +128,12 @@ fun Reference.extractDescriptors(): List<String> {
     return regex.findAll(this.toString()).map { it.value }.toList()
 }
 
-context(patchContext: BytecodePatchContext)
 fun Fingerprint.getReference(index: Int): Reference = method.getInstruction<ReferenceInstruction>(index).reference
 
-context(patchContext: BytecodePatchContext)
 fun Fingerprint.getMethodName(index: Int): String = (getReference(index) as DexBackedMethodReference).name
 
-context(patchContext: BytecodePatchContext)
 fun Fingerprint.getFieldName(index: Int): String = (getReference(index) as FieldReference).name
 
-context(patchContext: BytecodePatchContext)
 fun Fingerprint.changeStringAt(
     index: Int,
     value: String,
@@ -151,7 +147,6 @@ fun Fingerprint.changeStringAt(
 }
 
 /** Rewrites the placeholder equal to [sentinel], so slot order can shift without breaking. */
-context(patchContext: BytecodePatchContext)
 fun Fingerprint.changeString(
     sentinel: String,
     value: String,
@@ -165,7 +160,6 @@ fun Fingerprint.changeString(
     method.replaceInstruction(instruction.location.index, "const-string v$register, \"$value\"")
 }
 
-context(patchContext: BytecodePatchContext)
 fun Fingerprint.changeFirstString(value: String) {
     changeStringAt(0, value)
 }

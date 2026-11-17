@@ -5,25 +5,25 @@ import app.crimera.bytecode.Block
 import app.crimera.bytecode.Target
 import app.crimera.bytecode.insertHook
 import app.crimera.bytecode.methodReference
+import app.crimera.patches.common.ApkScoped
 import app.morphe.patcher.extensions.InstructionExtensions.instructions
-import app.morphe.patcher.patch.BytecodePatchContext
 import app.morphe.patcher.patch.Patch
 import app.morphe.patcher.patch.PatchException
-import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.mutableClassDefBy
+import app.morphe.patcher.patch.patch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import app.morphe.util.cloneMutable
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import java.lang.ref.WeakReference
-import java.util.WeakHashMap
 
 /**
  * Registers [contribution] into the shared settings registry. [basePatch] is the app's own settings
  * patch; depending on it guarantees the registry's `load()` is prepared before anything is injected.
  */
 fun settingsContributionPatch(
-    basePatch: Patch<*>,
+    basePatch: Patch,
     contribution: SettingsContributionCatalog,
-) = bytecodePatch(default = false) {
+) = patch(default = false) {
     dependsOn(basePatch)
 
     execute {
@@ -80,16 +80,20 @@ internal class SettingsGroupRegistrationTracker {
  * app resources discovered at patch time), and lands in order with the DSL contributions.
  */
 object SettingsRegistrationState {
-    private data class ContextState(
+    private data class ApkState(
         val loadMethod: WeakReference<MutableMethod>,
         val groupTracker: SettingsGroupRegistrationTracker,
         var nextRegistrationIndex: Int = 0,
     )
 
-    private val states = WeakHashMap<BytecodePatchContext, ContextState>()
+    private class ApkStateHolder {
+        var state: ApkState? = null
+    }
+
+    private val states = ApkScoped(::ApkStateHolder)
 
     @Synchronized
-    internal fun prepare(context: BytecodePatchContext, loadMethod: MutableMethod) {
+    internal fun prepare(loadMethod: MutableMethod) {
         if (loadMethod.instructions.isEmpty()) {
             error("Settings registry load target has no instructions")
         }
@@ -104,8 +108,8 @@ object SettingsRegistrationState {
                 moveResult(0, "Z")
                 ifNez(0, Target.Original)
             }
-        states[context] =
-            ContextState(
+        states.get().state =
+            ApkState(
                 loadMethod = WeakReference(loadMethod),
                 groupTracker = SettingsGroupRegistrationTracker(),
                 nextRegistrationIndex = insertion.lastIndex + 1,
@@ -114,17 +118,16 @@ object SettingsRegistrationState {
 
     @Synchronized
     internal fun shouldEmit(
-        context: BytecodePatchContext,
         parentId: String?,
         group: SettingsGroupDefinition,
         category: Boolean,
     ): Boolean =
-        states[context]?.groupTracker?.shouldEmit(parentId, group, category)
+        states.get().state?.groupTracker?.shouldEmit(parentId, group, category)
             ?: error("Settings registration state was not prepared")
 
     @Synchronized
-    fun inject(context: BytecodePatchContext, block: Block.() -> Unit) {
-        val state = states[context] ?: error("Settings registration state was not prepared")
+    fun inject(block: Block.() -> Unit) {
+        val state = states.get().state ?: error("Settings registration state was not prepared")
         val loadMethod = state.loadMethod.get()
             ?: error("Settings registry load target was not prepared")
         // Keep parent registration before later contribution items. Inserting every block at zero
@@ -140,9 +143,8 @@ object SettingsRegistrationState {
     }
 }
 
-context(context: BytecodePatchContext)
 internal fun injectSettingsContribution(contribution: SettingsContributionCatalog) {
-    SettingsRegistrationState.inject(context) { registrationInstructions(context, contribution) }
+    SettingsRegistrationState.inject { registrationInstructions(contribution) }
 }
 
 data class InjectedSettingRead(
@@ -317,27 +319,25 @@ private fun SettingReadRegisterConstraint.toRegisterLimit(): RegisterLimit =
     }
 
 private fun Block.registrationInstructions(
-    context: BytecodePatchContext,
     catalog: SettingsContributionCatalog,
 ) {
     catalog.categories.forEach { category ->
-        appendGroupRegistrationIfNeeded(context, null, category, category = true)
+        appendGroupRegistrationIfNeeded(null, category, category = true)
         category.children.forEach { child ->
-            appendNodeRegistration(context, category.id, child)
+            appendNodeRegistration(category.id, child)
         }
     }
 }
 
 private fun Block.appendNodeRegistration(
-    context: BytecodePatchContext,
     parentId: String,
     node: SettingsNodeDefinition,
 ) {
     when (node) {
         is SettingsGroupDefinition -> {
-            appendGroupRegistrationIfNeeded(context, parentId, node, category = false)
+            appendGroupRegistrationIfNeeded(parentId, node, category = false)
             node.children.forEach { child ->
-                appendNodeRegistration(context, node.id, child)
+                appendNodeRegistration(node.id, child)
             }
         }
 
@@ -448,12 +448,11 @@ private fun Block.appendNodeRegistration(
 }
 
 private fun Block.appendGroupRegistrationIfNeeded(
-    context: BytecodePatchContext,
     parentId: String?,
     group: SettingsGroupDefinition,
     category: Boolean,
 ) {
-    if (!SettingsRegistrationState.shouldEmit(context, parentId, group, category)) return
+    if (!SettingsRegistrationState.shouldEmit(parentId, group, category)) return
     appendGroupRegistration(
         method = if (category) "registerCategory" else "registerGroup",
         parentId = parentId,
@@ -644,9 +643,8 @@ private fun ToggleSettingDefinition.branch(
  * registers when needed and inserts the `isLoaded()` guard that contributions are injected behind.
  * The app's base settings patch calls this from its `execute` block, before any contribution runs.
  */
-context(context: BytecodePatchContext)
 fun prepareSettingsRegistryLoad() {
-    val registryClass = context.mutableClassDefBy(SETTINGS_REGISTRY_DESCRIPTOR)
+    val registryClass = mutableClassDefBy(SETTINGS_REGISTRY_DESCRIPTOR)
     val loadMethod =
         registryClass.methods.singleOrNull { method ->
             method.name == "load" &&
@@ -665,7 +663,7 @@ fun prepareSettingsRegistryLoad() {
                 registryClass.methods.add(expandedMethod)
             }
         }
-    SettingsRegistrationState.prepare(context, preparedLoadMethod)
+    SettingsRegistrationState.prepare(preparedLoadMethod)
 }
 
 /**

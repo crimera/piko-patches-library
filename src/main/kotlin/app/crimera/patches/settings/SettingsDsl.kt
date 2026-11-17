@@ -1,6 +1,6 @@
 package app.crimera.patches.settings
 
-import app.morphe.patcher.patch.BytecodePatchBuilder
+import app.morphe.patcher.patch.PatchBuilder
 
 data class SettingStrings(
     val titleResourceName: String,
@@ -171,7 +171,7 @@ fun SettingsGroupBuilder.customScreen(
  * Declares settings from a patch and makes the patch depend on the contribution that registers them.
  * The returned definitions are what the patch uses to read the settings in bytecode.
  */
-fun <T> BytecodePatchBuilder.contributeSettings(
+fun <T> PatchBuilder<*>.contributeSettings(
     config: SettingsPatchConfig,
     block: SettingsContributionBuilder.() -> T,
 ): T {
@@ -183,7 +183,7 @@ fun <T> BytecodePatchBuilder.contributeSettings(
     return result
 }
 
-fun BytecodePatchBuilder.settingsToggle(
+fun PatchBuilder<*>.settingsToggle(
     config: SettingsPatchConfig,
     id: String,
     category: SettingsCategory,
@@ -207,7 +207,7 @@ fun BytecodePatchBuilder.settingsToggle(
         }
     }
 
-fun BytecodePatchBuilder.settingsTextInput(
+fun PatchBuilder<*>.settingsTextInput(
     config: SettingsPatchConfig,
     id: String,
     category: SettingsCategory,
@@ -235,7 +235,7 @@ fun BytecodePatchBuilder.settingsTextInput(
         }
     }
 
-fun BytecodePatchBuilder.settingsSingleChoice(
+fun PatchBuilder<*>.settingsSingleChoice(
     config: SettingsPatchConfig,
     id: String,
     category: SettingsCategory,
@@ -261,7 +261,7 @@ fun BytecodePatchBuilder.settingsSingleChoice(
         }
     }
 
-fun BytecodePatchBuilder.settingsMultiChoice(
+fun PatchBuilder<*>.settingsMultiChoice(
     config: SettingsPatchConfig,
     id: String,
     category: SettingsCategory,
@@ -287,7 +287,7 @@ fun BytecodePatchBuilder.settingsMultiChoice(
         }
     }
 
-fun BytecodePatchBuilder.settingsCustomScreen(
+fun PatchBuilder<*>.settingsCustomScreen(
     config: SettingsPatchConfig,
     id: String,
     category: SettingsCategory,
@@ -309,7 +309,7 @@ fun BytecodePatchBuilder.settingsCustomScreen(
         }
     }
 
-fun BytecodePatchBuilder.settingsAction(
+fun PatchBuilder<*>.settingsAction(
     config: SettingsPatchConfig,
     id: String,
     category: SettingsCategory,
