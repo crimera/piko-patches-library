@@ -5,6 +5,7 @@ import app.morphe.patcher.PatcherConfig
 import app.morphe.patcher.PatcherContext
 import app.morphe.patcher.extensions.InstructionExtensions.instructions
 import app.morphe.patcher.patch.BytecodePatchContext
+import app.morphe.patcher.patch.mutableClassDefByOrNull
 import app.morphe.patcher.util.proxy.mutableTypes.MutableClass
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import app.morphe.patcher.util.smali.toInstruction
@@ -32,7 +33,7 @@ class ScopedFingerprintMatchingTest {
         val originalMethod = fixtureMethod("shape-candidate")
         val fixture = BytecodeContextFixture(fixtureClass(originalMethod))
 
-        fixture.use { contextFixture ->
+        fixture.use {
             val shapeFingerprint = ShapeFingerprint(
                 returnType = "V",
                 parameters = emptyList(),
@@ -44,12 +45,8 @@ class ScopedFingerprintMatchingTest {
                 custom = ::containsShapeCandidate,
             )
 
-            val shapeMatches = with(contextFixture.context) {
-                shapeFingerprint.scopedMatchAllOrNull()
-            }
-            val nativeMatches = with(contextFixture.context) {
-                nativeFingerprint.matchAllOrNull()
-            }
+            val shapeMatches = shapeFingerprint.scopedMatchAllOrNull()
+            val nativeMatches = nativeFingerprint.matchAllOrNull()
 
             assertEquals(1, shapeMatches?.size)
             assertEquals(
@@ -57,13 +54,13 @@ class ScopedFingerprintMatchingTest {
                 shapeMatches?.map { match -> match.originalMethod.toString() },
             )
 
-            val currentOwner = contextFixture.context.mutableClassDefByOrNull(FIXTURE_OWNER)
+            val currentOwner = mutableClassDefByOrNull(FIXTURE_OWNER)
                 ?: error("fixture owner was not found")
             val currentMethod = currentOwner.methods.single { method -> method.name == FIXTURE_METHOD }
             currentMethod.implementation?.removeInstruction(0)
                 ?: error("fixture method has no implementation")
 
-            assertNull(with(contextFixture.context) { shapeFingerprint.scopedMatchAllOrNull() })
+            assertNull(shapeFingerprint.scopedMatchAllOrNull())
         }
     }
 
@@ -72,23 +69,20 @@ class ScopedFingerprintMatchingTest {
         val originalOwner = MutableClass(fixtureClass(fixtureMethod(SHAPE_MARKER)))
         val fixture = BytecodeContextFixture(originalOwner)
 
-        fixture.use { contextFixture ->
+        fixture.use {
             val fingerprint = ShapeFingerprint(
                 returnType = "V",
                 parameters = emptyList(),
                 custom = ::containsShapeCandidate,
             )
 
-            assertEquals(
-                1,
-                with(contextFixture.context) { fingerprint.scopedMatchAllOrNull()?.size },
-            )
+            assertEquals(1, fingerprint.scopedMatchAllOrNull()?.size)
 
             val currentMethod = originalOwner.methods.single { method -> method.name == FIXTURE_METHOD }
             originalOwner.methods.remove(currentMethod)
             originalOwner.methods.add(MutableMethod(fixtureMethod("replaced-method")))
 
-            assertNull(with(contextFixture.context) { fingerprint.scopedMatchAllOrNull() })
+            assertNull(fingerprint.scopedMatchAllOrNull())
         }
     }
 
@@ -96,21 +90,22 @@ class ScopedFingerprintMatchingTest {
     fun `missing nested-class fingerprint remains an optional null result`() {
         val fixture = BytecodeContextFixture(fixtureClass(fixtureMethod("unrelated")))
 
-        fixture.use { contextFixture ->
+        fixture.use {
             val fingerprint = Fingerprint(
                 classFingerprint = Fingerprint(definingClass = MISSING_OWNER),
                 returnType = "V",
                 parameters = emptyList(),
             )
 
-            assertNull(with(contextFixture.context) { fingerprint.scopedMatchAllOrNull() })
+            assertNull(fingerprint.scopedMatchAllOrNull())
         }
     }
 
     private class BytecodeContextFixture(classDef: ClassDef) : AutoCloseable {
         private val root = Files.createTempDirectory("scoped-fingerprint-test").toFile()
-        val context = createContext(root)
-        private val patcherContext = createPatcherContext(context)
+        private val metadata = createMetadata()
+        private val context = createContext(root, metadata)
+        private val patcherContext = createPatcherContext(context, metadata)
         private val currentField = PatcherContext::class.java.getDeclaredField("current").apply {
             isAccessible = true
         }
@@ -137,7 +132,7 @@ class ScopedFingerprintMatchingTest {
             root.deleteRecursively()
         }
 
-        private fun createPatcherContext(bytecodeContext: BytecodePatchContext): PatcherContext {
+        private fun createPatcherContext(bytecodeContext: BytecodePatchContext, metadata: Any): PatcherContext {
             val unsafeClass = Class.forName("sun.misc.Unsafe")
             val theUnsafe = unsafeClass.getDeclaredField("theUnsafe").apply { isAccessible = true }.get(null)
             val allocateInstance = unsafeClass.getMethod("allocateInstance", Class::class.java)
@@ -146,15 +141,23 @@ class ScopedFingerprintMatchingTest {
                 isAccessible = true
                 set(instance, bytecodeContext)
             }
+            // The shape index is kept for the package metadata of the APK being patched.
+            PatcherContext::class.java.getDeclaredField("packageMetadata").apply {
+                isAccessible = true
+                set(instance, metadata)
+            }
             return instance
         }
 
-        private fun createContext(root: File): BytecodePatchContext {
+        private fun createMetadata(): Any {
             val metadataType = Class.forName("app.morphe.patcher.PackageMetadata")
-            val metadata = metadataType.declaredConstructors.single { constructor ->
-                constructor.parameterCount == 4
+            return metadataType.declaredConstructors.single { constructor ->
+                constructor.parameterCount == 5
             }
-                .newInstance("app.crimera.test", "1", "1", null)
+                .newInstance("app.crimera.test", "1", "1", null, emptyMap<String, File>())
+        }
+
+        private fun createContext(root: File, metadata: Any): BytecodePatchContext {
             val constructor = BytecodePatchContext::class.java.declaredConstructors.single { candidate ->
                 candidate.parameterCount == 2 && candidate.parameterTypes[0] == PatcherConfig::class.java
             }
