@@ -1,6 +1,5 @@
 package app.crimera.patches.common
 
-import app.morphe.patcher.patch.BytecodePatchContext
 import app.morphe.patcher.patch.classDefByOrNull
 
 /**
@@ -40,9 +39,6 @@ private val PLATFORM_IMPLEMENTATIONS =
                 "Ljava/util/TreeMap;",
             ),
     )
-
-fun BytecodePatchContext.isAssignableTo(descriptor: String, target: String): Boolean =
-    app.crimera.patches.common.isAssignableTo(descriptor, target)
 
 fun isAssignableTo(descriptor: String, target: String): Boolean {
     if (descriptor == target) return true

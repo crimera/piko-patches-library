@@ -7,11 +7,10 @@
 package app.crimera.patches.downloader
 
 import app.morphe.patcher.patch.PatchException
-import app.morphe.patcher.patch.document
 import app.morphe.patcher.patch.patch
-import org.w3c.dom.Document
-import org.w3c.dom.Element
-import org.w3c.dom.Node
+import app.morphe.patcher.patch.resourceXml
+import app.morphe.patcher.xml.ResourceXml
+import app.morphe.patcher.xml.XmlElement
 
 private data class ManifestComponent(
     val tagName: String,
@@ -30,47 +29,30 @@ private val DOWNLOADER_COMPONENTS = listOf(
  *
  * Safe to run multiple times: existing components with matching name are preserved as-is.
  */
-internal fun addDownloaderComponents(document: Document) {
-    val applications = document.getElementsByTagName("application")
-    if (applications.length == 0) {
-        throw PatchException("AndroidManifest.xml does not contain an <application> element")
-    }
-    val application = applications.item(0) as Element
+internal fun addDownloaderComponents(manifest: ResourceXml) {
+    val application = manifest.elements("application").firstOrNull()
+        ?: throw PatchException("AndroidManifest.xml does not contain an <application> element")
 
     for (component in DOWNLOADER_COMPONENTS) {
         if (!application.hasComponent(component.className)) {
-            val element = document.createElement(component.tagName)
-            element.setAttribute("android:name", component.className)
-            element.setAttribute("android:exported", "false")
-            application.appendChild(element)
+            application.appendChild(component.tagName) {
+                setAttribute("android:name", component.className)
+                setAttribute("android:exported", "false")
+            }
         }
     }
 }
 
-private fun Element.hasComponent(name: String): Boolean {
-    val children = childNodes
-    for (i in 0 until children.length) {
-        val node = children.item(i)
-        if (node.nodeType == Node.ELEMENT_NODE) {
-            val element = node as Element
-            val componentName = element.getAttribute("android:name").ifEmpty {
-                element.getAttributeNS("http://schemas.android.com/apk/res/android", "name")
-            }
-            if (componentName == name) {
-                return true
-            }
-        }
-    }
-    return false
-}
+private fun XmlElement.hasComponent(name: String): Boolean =
+    children.any { child -> child.attribute("android:name") == name }
 
 val downloaderManifestPatch =
     patch(
         description = "Adds the shared downloader components to the Android manifest.",
     ) {
         finalize {
-            document("AndroidManifest.xml").use { document ->
-                addDownloaderComponents(document)
+            resourceXml("AndroidManifest.xml").use { manifest ->
+                addDownloaderComponents(manifest)
             }
         }
     }

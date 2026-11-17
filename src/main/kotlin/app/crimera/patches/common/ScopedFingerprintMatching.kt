@@ -3,15 +3,13 @@ package app.crimera.patches.common
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.InstructionFilter
 import app.morphe.patcher.Match
-import app.morphe.patcher.patch.BytecodePatchContext
-import app.morphe.patcher.patch.bytecodeContext
+import app.morphe.patcher.StringFilter
 import app.morphe.patcher.patch.classDefByOrNull
 import app.morphe.patcher.patch.classDefForEach
 import app.morphe.patcher.util.proxy.mutableTypes.MutableClass
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.iface.ClassDef
 import com.android.tools.smali.dexlib2.iface.Method
-import java.util.WeakHashMap
 
 private data class MethodShape(
     val returnType: String,
@@ -22,7 +20,7 @@ private data class IndexedMethod(
     val originalClass: ClassDef,
     val originalMethod: Method,
 ) {
-    fun resolveCurrent(context: BytecodePatchContext): Method? {
+    fun resolveCurrent(): Method? {
         val currentClass = classDefByOrNull(originalClass.type) ?: return null
         if (currentClass === originalClass && currentClass !is MutableClass) return originalMethod
 
@@ -36,24 +34,19 @@ private data class IndexedMethod(
 
 private object ShapeMethodIndex {
     private val methodsByShape =
-        WeakHashMap<BytecodePatchContext, Map<MethodShape, List<IndexedMethod>>>()
-
-    fun methods(
-        context: BytecodePatchContext,
-        shape: MethodShape,
-    ): List<Method> =
-        synchronized(methodsByShape) {
-            methodsByShape.getOrPut(context) {
-                buildMap<MethodShape, MutableList<IndexedMethod>> {
-                    classDefForEach { classDef ->
-                        classDef.methods.forEach { method ->
-                            val methodShape = MethodShape(method.returnType, method.parameterTypes.size)
-                            getOrPut(methodShape, ::mutableListOf).add(IndexedMethod(classDef, method))
-                        }
+        ApkScoped<Map<MethodShape, List<IndexedMethod>>> {
+            buildMap<MethodShape, MutableList<IndexedMethod>> {
+                classDefForEach { classDef ->
+                    classDef.methods.forEach { method ->
+                        val methodShape = MethodShape(method.returnType, method.parameterTypes.size)
+                        getOrPut(methodShape, ::mutableListOf).add(IndexedMethod(classDef, method))
                     }
                 }
-            }[shape].orEmpty().mapNotNull { method -> method.resolveCurrent(context) }
+            }
         }
+
+    fun methods(shape: MethodShape): List<Method> =
+        methodsByShape.get()[shape].orEmpty().mapNotNull { method -> method.resolveCurrent() }
 }
 
 private fun String.isExactTypeDeclaration(): Boolean =
@@ -63,7 +56,8 @@ private fun String.isExactTypeDeclaration(): Boolean =
 
 /**
  * Fingerprint that records its declared return type and parameter arity for the retained shape
- * index. Ordinary fingerprints use Patcher's native all-match search.
+ * index. Ordinary fingerprints, and shape fingerprints with a string, use Patcher's native
+ * all-match search, which finds the classes with the string in its instruction indexes.
  */
 open class ShapeFingerprint(
     returnType: String? = null,
@@ -84,6 +78,7 @@ open class ShapeFingerprint(
 ) {
     val declaredReturnType: String? = returnType?.takeIf(String::isExactTypeDeclaration)
     val declaredParameterCount: Int? = parameters?.size
+    internal val hasString: Boolean = strings != null || filters?.any { it is StringFilter } == true
 }
 
 /** Native all-match for ordinary fingerprints; explicit declarations retain the measured shape table. */
@@ -103,10 +98,11 @@ fun Fingerprint.scopedMatchAllOrNull(): List<Match>? {
     }
 
     val shapeFingerprint = this as? ShapeFingerprint ?: return matchAllOrNull()
+    if (shapeFingerprint.hasString) return matchAllOrNull()
     val returnType = shapeFingerprint.declaredReturnType ?: return matchAllOrNull()
     val parameterCount = shapeFingerprint.declaredParameterCount ?: return matchAllOrNull()
     val shape = MethodShape(returnType, parameterCount)
-    val candidates = ShapeMethodIndex.methods(bytecodeContext, shape)
+    val candidates = ShapeMethodIndex.methods(shape)
     val matches = buildList {
         candidates.forEach { method ->
             val classDef = classDefByOrNull(method.definingClass) ?: return@forEach
